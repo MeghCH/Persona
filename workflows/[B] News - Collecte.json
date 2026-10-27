@@ -1,0 +1,226 @@
+{
+  "name": "[B] News - Collecte",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ],
+      "id": "c0080f43-674b-438e-b7e6-a28ee11e917a",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  { json: { source: 'Le Monde',    url: 'https://www.lemonde.fr/rss/une.xml' } },\n  { json: { source: 'France Info', url: 'https://www.francetvinfo.fr/titres.rss' } },\n  { json: { source: 'Numerama',    url: 'https://www.numerama.com/feed/' } },\n  { json: { source: 'BBC News',    url: 'https://feeds.bbci.co.uk/news/rss.xml' } },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ],
+      "id": "08372280-1854-4e20-8370-db77c353de14",
+      "name": "Liste des sources"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        432,
+        0
+      ],
+      "id": "406e2af5-dd61-4554-ac93-11ed73f7a1da",
+      "name": "Lire les flux",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "13d76090-86da-4872-863a-ecfc5cae86ee",
+              "name": "source",
+              "value": "={{ $('Liste des sources').item.json.source }}",
+              "type": "string"
+            },
+            {
+              "id": "bdf48fef-9cd2-46a4-adb5-4246a284f4cb",
+              "name": "title",
+              "value": "={{ $json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "c3a3ec39-5253-43b4-be8f-89d3f582332e",
+              "name": "url",
+              "value": "={{ $json.link.split('#')[0] }}",
+              "type": "string"
+            },
+            {
+              "id": "7d4e5196-83cb-4eda-8e34-501ada77e354",
+              "name": "content",
+              "value": "={{ $json.contentSnippet }}",
+              "type": "string"
+            },
+            {
+              "id": "d5160eb3-e3e2-4f98-a32b-56be07ac7e1d",
+              "name": "published_at",
+              "value": "={{ $json.isoDate }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        656,
+        0
+      ],
+      "id": "67881c76-dcbd-4eb6-96c0-005407ed31d3",
+      "name": "Mettre en forme"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "afa76859-5b06-432b-a724-b27e9f920aa4",
+              "leftValue": "={{ $json.published_at }}",
+              "rightValue": "={{ $now.minus({ hours: 48 }) }}",
+              "operator": {
+                "type": "dateTime",
+                "operation": "after"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.4,
+      "position": [
+        880,
+        0
+      ],
+      "id": "cb06ee8d-29bb-4c06-a964-b4ba2ef25173",
+      "name": "Articles récents"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO articles (url, title, source, content, published_at)\nVALUES ($1, $2, $3, $4, $5)\nON CONFLICT (url) DO NOTHING\nRETURNING id, title, source, content;",
+        "options": {
+          "queryReplacement": "={{ [ $json.url, $json.title, $json.source, $json.content || '', $json.published_at ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1104,
+        0
+      ],
+      "id": "a0539819-583e-46c9-b0e2-e6398eeb7b42",
+      "name": "Enregistrer les articles",
+      "credentials": {
+        "postgres": {
+          "id": "NVYHYZPCSYpCPKph",
+          "name": "Postgres Persona"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Liste des sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Liste des sources": {
+      "main": [
+        [
+          {
+            "node": "Lire les flux",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lire les flux": {
+      "main": [
+        [
+          {
+            "node": "Mettre en forme",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mettre en forme": {
+      "main": [
+        [
+          {
+            "node": "Articles récents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Articles récents": {
+      "main": [
+        [
+          {
+            "node": "Enregistrer les articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "12936863-0040-4118-98ad-041d6ecf5669",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "459b493c2f55b9502fee9e7c95d986d0fcdb0ac77db0b81ed8e1520e7b577ded"
+  },
+  "nodeGroups": [],
+  "id": "A9xKmMDsv9dQsZpq",
+  "tags": []
+}
