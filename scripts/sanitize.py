@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-Nettoie les workflows n8n exportés avant commit / rendu (cf. page 5 du sujet).
-- remplace les noms de credentials par un nom générique
-- supprime les données épinglées (pinData), qui peuvent contenir des données réelles
-- signale les headers sensibles (Authorization, api key...) et les vide
+Nettoie les workflows n8n exportés avant commit / rendu.
+- remplace les noms de credentials par un nom générique.
+- supprime les données épinglées (pinData), staticData et shared, qui peuvent contenir des données réelles.
+- vide les headers sensibles (Authorization, api key...).
+- signale les secrets probables ailleurs (webhooks Discord, clés API...) sans les modifier.
 
 Usage : python3 scripts/sanitize.py workflows/
 """
@@ -13,6 +14,8 @@ import sys
 from pathlib import Path
 
 SENSITIVE_HEADER = re.compile(r"authorization|api[-_]?key|token|secret|cookie|password", re.I)
+SECRET_PATTERNS = re.compile(r"discord(app)?\.com/api/webhooks/|AIza[0-9A-Za-z_-]{20,}|sk-[A-Za-z0-9_-]{20,}|Bearer\s+\S{10,}"
+)
 
 
 def clean_headers(node, warnings):
@@ -23,6 +26,16 @@ def clean_headers(node, warnings):
                 warnings.append(f"  ! {node['name']} : '{p['name']}' vidé")
                 p["value"] = ""
 
+def scan_secrets(obj, where, warnings):
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            scan_secrets(v, f"{where}.{k}", warnings)
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj):
+            scan_secrets(v, f"{where}[{i}]", warnings)
+    elif isinstance(obj, str) and SECRET_PATTERNS.search(obj):
+        warnings.append(f"  !! secret probable dans {where} : à retirer à la main")
+
 
 def sanitize(path: Path) -> list[str]:
     data = json.loads(path.read_text(encoding="utf-8"))
@@ -32,6 +45,9 @@ def sanitize(path: Path) -> list[str]:
     for wf in workflows:
         if wf.pop("pinData", None):
             warnings.append("  - pinData supprimé")
+        for key in ("staticData", "shared"):
+            if wf.pop(key, None):
+                warnings.append(f"  - {key} supprimé")
         for node in wf.get("nodes", []):
             for cred_type, cred in node.get("credentials", {}).items():
                 cred["name"] = f"{cred_type} (à configurer)"
