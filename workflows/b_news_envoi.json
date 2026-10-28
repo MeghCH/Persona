@@ -1,312 +1,310 @@
-[
-  {
-    "updatedAt": "2026-10-27T14:56:16.261Z",
-    "createdAt": "2026-10-27T14:10:09.152Z",
-    "id": "MxsOXhU0nqsS2pkj",
-    "name": "[B] News - Envoi",
-    "description": null,
-    "active": false,
-    "isArchived": false,
-    "nodes": [
-      {
-        "parameters": {
-          "rule": {
-            "interval": [
-              {
-                "field": "cronExpression",
-                "expression": "0 * * * *"
-              }
-            ]
-          }
-        },
-        "type": "n8n-nodes-base.scheduleTrigger",
-        "typeVersion": 1.4,
-        "position": [
-          0,
-          0
-        ],
-        "id": "a1bb6b34-a7ce-43c4-a615-0c7a41754a02",
-        "name": "Schedule Trigger"
-      },
-      {
-        "parameters": {
-          "operation": "executeQuery",
-          "query": "SELECT u.id, u.email, u.unsubscribe_token, p.interests, p.max_articles\nFROM users u\nJOIN preferences p ON p.user_id = u.id\nWHERE p.is_active\n  AND p.send_hour = EXTRACT(HOUR FROM now() AT TIME ZONE p.timezone)\n  AND EXTRACT(ISODOW FROM now() AT TIME ZONE p.timezone) = ANY (p.send_days)\n  AND (p.last_sent_at IS NULL OR p.last_sent_at < now() - INTERVAL '20 hours');",
-          "options": {}
-        },
-        "type": "n8n-nodes-base.postgres",
-        "typeVersion": 2.7,
-        "position": [
-          224,
-          0
-        ],
-        "id": "73a6e7d8-d2bd-44e4-81a9-4986ebb49ca3",
-        "name": "Utilisateurs à servir",
-        "credentials": {
-          "postgres": {
-            "id": "NVYHYZPCSYpCPKph",
-            "name": "postgres (à configurer)"
-          }
+{
+  "updatedAt": "2026-10-27T14:56:16.261Z",
+  "createdAt": "2026-10-27T14:10:09.152Z",
+  "id": "MxsOXhU0nqsS2pkj",
+  "name": "[B] News - Envoi",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 * * * *"
+            }
+          ]
         }
       },
-      {
-        "parameters": {
-          "operation": "executeQuery",
-          "query": "SELECT COALESCE(json_agg(x), '[]') AS articles\nFROM (\n  SELECT id, title, url, source, summary\n  FROM articles\n  WHERE tags && ARRAY(SELECT json_array_elements_text($1::json))\n    AND summary IS NOT NULL\n    AND fetched_at > now() - INTERVAL '24 hours'\n  ORDER BY published_at DESC NULLS LAST\n  LIMIT $2::int\n) x;",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ],
+      "id": "a1bb6b34-a7ce-43c4-a615-0c7a41754a02",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT u.id, u.email, u.unsubscribe_token, p.interests, p.max_articles\nFROM users u\nJOIN preferences p ON p.user_id = u.id\nWHERE p.is_active\n  AND p.send_hour = EXTRACT(HOUR FROM now() AT TIME ZONE p.timezone)\n  AND EXTRACT(ISODOW FROM now() AT TIME ZONE p.timezone) = ANY (p.send_days)\n  AND (p.last_sent_at IS NULL OR p.last_sent_at < now() - INTERVAL '20 hours');",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        224,
+        0
+      ],
+      "id": "73a6e7d8-d2bd-44e4-81a9-4986ebb49ca3",
+      "name": "Utilisateurs à servir",
+      "credentials": {
+        "postgres": {
+          "id": "NVYHYZPCSYpCPKph",
+          "name": "postgres (à configurer)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COALESCE(json_agg(x), '[]') AS articles\nFROM (\n  SELECT id, title, url, source, summary\n  FROM articles\n  WHERE tags && ARRAY(SELECT json_array_elements_text($1::json))\n    AND summary IS NOT NULL\n    AND fetched_at > now() - INTERVAL '24 hours'\n  ORDER BY published_at DESC NULLS LAST\n  LIMIT $2::int\n) x;",
+        "options": {
+          "queryReplacement": "={{ [ JSON.stringify($json.interests), $json.max_articles ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        448,
+        0
+      ],
+      "id": "58946305-1c9c-49d4-b121-503bb0d55d06",
+      "name": "Articles pour l'utilisateur",
+      "credentials": {
+        "postgres": {
+          "id": "NVYHYZPCSYpCPKph",
+          "name": "postgres (à configurer)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
           "options": {
-            "queryReplacement": "={{ [ JSON.stringify($json.interests), $json.max_articles ] }}"
-          }
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "9f8f883f-fad6-42fc-922c-74fccbea3236",
+              "leftValue": "={{ $json.articles.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
         },
-        "type": "n8n-nodes-base.postgres",
-        "typeVersion": 2.7,
-        "position": [
-          448,
-          0
-        ],
-        "id": "58946305-1c9c-49d4-b121-503bb0d55d06",
-        "name": "Articles pour l'utilisateur",
-        "credentials": {
-          "postgres": {
-            "id": "NVYHYZPCSYpCPKph",
-            "name": "postgres (à configurer)"
-          }
-        }
+        "options": {}
       },
-      {
-        "parameters": {
-          "conditions": {
-            "options": {
-              "caseSensitive": true,
-              "leftValue": "",
-              "typeValidation": "strict",
-              "version": 4
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.4,
+      "position": [
+        672,
+        0
+      ],
+      "id": "8ef9b31c-77fc-4f65-8150-e89d6a472014",
+      "name": "A des articles"
+    },
+    {
+      "parameters": {
+        "fromEmail": "Persona <personaepitech26@gmail.com>",
+        "toEmail": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "html": "={{ $json.html }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1344,
+        0
+      ],
+      "id": "354b4bca-9d55-446c-9cf4-e17d625ba7b1",
+      "name": "Envoyer la newsletter",
+      "webhookId": "19b93988-ae6e-4a61-9796-8030a1a089f5",
+      "credentials": {
+        "smtp": {
+          "id": "jS2Eif9DDVW1DYQd",
+          "name": "smtp (à configurer)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6f016862-bcdc-4e87-b543-0aca161e2855",
+              "name": "blocs",
+              "value": "={{ $json.articles.map(a => `<p><a href=\"${a.url}\"><b>${a.title}</b></a><br><small>${a.source}</small><br>${a.summary}</p>`).join('') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        896,
+        0
+      ],
+      "id": "48f121d6-d42b-4e61-a748-569826c77e90",
+      "name": "Préparer les articles"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7bd9f3ee-c84c-4b01-bc91-f331f407f1a8",
+              "name": "to",
+              "value": "={{ $('Utilisateurs à servir').item.json.email }}",
+              "type": "string"
             },
-            "conditions": [
-              {
-                "id": "9f8f883f-fad6-42fc-922c-74fccbea3236",
-                "leftValue": "={{ $json.articles.length }}",
-                "rightValue": 0,
-                "operator": {
-                  "type": "number",
-                  "operation": "gt"
-                }
-              }
-            ],
-            "combinator": "and"
-          },
-          "options": {}
+            {
+              "id": "58878f96-e743-4a1b-9670-f5201e40ea6c",
+              "name": "subject",
+              "value": "=Ta revue de presse Persona du {{ $now.setZone('Europe/Paris').setLocale('fr').toFormat('d LLLL') }}",
+              "type": "string"
+            },
+            {
+              "id": "0ca73bd5-8bbb-445d-976a-82137d01334a",
+              "name": "html",
+              "value": "=<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:auto\">   <h1 style=\"color:#1a56db\">Ta revue de presse Persona</h1>    {{ $json.blocs }}    <hr>   <p style=\"font-size:12px;color:#6b7280\">     Tu reçois cet email car tu t'es inscrit à Persona.     <a href=\"http://localhost:5678/webhook/unsubscribe?token={{ $('Utilisateurs à servir').item.json.unsubscribe_token }}\">Se désinscrire</a>   </p> </div>",
+              "type": "string"
+            }
+          ]
         },
-        "type": "n8n-nodes-base.filter",
-        "typeVersion": 2.4,
-        "position": [
-          672,
-          0
-        ],
-        "id": "8ef9b31c-77fc-4f65-8150-e89d6a472014",
-        "name": "A des articles"
+        "options": {}
       },
-      {
-        "parameters": {
-          "fromEmail": "Persona <personaepitech26@gmail.com>",
-          "toEmail": "={{ $json.to }}",
-          "subject": "={{ $json.subject }}",
-          "html": "={{ $json.html }}",
-          "options": {}
-        },
-        "type": "n8n-nodes-base.emailSend",
-        "typeVersion": 2.1,
-        "position": [
-          1344,
-          0
-        ],
-        "id": "354b4bca-9d55-446c-9cf4-e17d625ba7b1",
-        "name": "Envoyer la newsletter",
-        "webhookId": "19b93988-ae6e-4a61-9796-8030a1a089f5",
-        "credentials": {
-          "smtp": {
-            "id": "jS2Eif9DDVW1DYQd",
-            "name": "smtp (à configurer)"
-          }
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1120,
+        0
+      ],
+      "id": "9278b44b-fe7a-4ba0-ba32-843f8c297985",
+      "name": "Construire l'email"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH envoi AS (\n  INSERT INTO sent_newsletters (user_id, article_ids)\n  VALUES ($1::uuid, ARRAY(SELECT json_array_elements_text($2::json)::bigint))\n)\nUPDATE preferences\nSET last_sent_at = now()\nWHERE user_id = $1::uuid;",
+        "options": {
+          "queryReplacement": "={{ [ $('Utilisateurs à servir').item.json.id, JSON.stringify($('A des articles').item.json.articles.map(a => a.id)) ] }}"
         }
       },
-      {
-        "parameters": {
-          "assignments": {
-            "assignments": [
-              {
-                "id": "6f016862-bcdc-4e87-b543-0aca161e2855",
-                "name": "blocs",
-                "value": "={{ $json.articles.map(a => `<p><a href=\"${a.url}\"><b>${a.title}</b></a><br><small>${a.source}</small><br>${a.summary}</p>`).join('') }}",
-                "type": "string"
-              }
-            ]
-          },
-          "options": {}
-        },
-        "type": "n8n-nodes-base.set",
-        "typeVersion": 3.5,
-        "position": [
-          896,
-          0
-        ],
-        "id": "48f121d6-d42b-4e61-a748-569826c77e90",
-        "name": "Préparer les articles"
-      },
-      {
-        "parameters": {
-          "assignments": {
-            "assignments": [
-              {
-                "id": "7bd9f3ee-c84c-4b01-bc91-f331f407f1a8",
-                "name": "to",
-                "value": "={{ $('Utilisateurs à servir').item.json.email }}",
-                "type": "string"
-              },
-              {
-                "id": "58878f96-e743-4a1b-9670-f5201e40ea6c",
-                "name": "subject",
-                "value": "=Ta revue de presse Persona du {{ $now.setZone('Europe/Paris').setLocale('fr').toFormat('d LLLL') }}",
-                "type": "string"
-              },
-              {
-                "id": "0ca73bd5-8bbb-445d-976a-82137d01334a",
-                "name": "html",
-                "value": "=<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:auto\">   <h1 style=\"color:#1a56db\">Ta revue de presse Persona</h1>    {{ $json.blocs }}    <hr>   <p style=\"font-size:12px;color:#6b7280\">     Tu reçois cet email car tu t'es inscrit à Persona.     <a href=\"http://localhost:5678/webhook/unsubscribe?token={{ $('Utilisateurs à servir').item.json.unsubscribe_token }}\">Se désinscrire</a>   </p> </div>",
-                "type": "string"
-              }
-            ]
-          },
-          "options": {}
-        },
-        "type": "n8n-nodes-base.set",
-        "typeVersion": 3.5,
-        "position": [
-          1120,
-          0
-        ],
-        "id": "9278b44b-fe7a-4ba0-ba32-843f8c297985",
-        "name": "Construire l'email"
-      },
-      {
-        "parameters": {
-          "operation": "executeQuery",
-          "query": "WITH envoi AS (\n  INSERT INTO sent_newsletters (user_id, article_ids)\n  VALUES ($1::uuid, ARRAY(SELECT json_array_elements_text($2::json)::bigint))\n)\nUPDATE preferences\nSET last_sent_at = now()\nWHERE user_id = $1::uuid;",
-          "options": {
-            "queryReplacement": "={{ [ $('Utilisateurs à servir').item.json.id, JSON.stringify($('A des articles').item.json.articles.map(a => a.id)) ] }}"
-          }
-        },
-        "type": "n8n-nodes-base.postgres",
-        "typeVersion": 2.7,
-        "position": [
-          1568,
-          0
-        ],
-        "id": "10d78ca3-816c-4e88-b13b-c6c6bff03ed6",
-        "name": "Enregistrer l'envoi",
-        "credentials": {
-          "postgres": {
-            "id": "NVYHYZPCSYpCPKph",
-            "name": "postgres (à configurer)"
-          }
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1568,
+        0
+      ],
+      "id": "10d78ca3-816c-4e88-b13b-c6c6bff03ed6",
+      "name": "Enregistrer l'envoi",
+      "credentials": {
+        "postgres": {
+          "id": "NVYHYZPCSYpCPKph",
+          "name": "postgres (à configurer)"
         }
       }
-    ],
-    "connections": {
-      "Schedule Trigger": {
-        "main": [
-          [
-            {
-              "node": "Utilisateurs à servir",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Utilisateurs à servir": {
-        "main": [
-          [
-            {
-              "node": "Articles pour l'utilisateur",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Articles pour l'utilisateur": {
-        "main": [
-          [
-            {
-              "node": "A des articles",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "A des articles": {
-        "main": [
-          [
-            {
-              "node": "Préparer les articles",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Préparer les articles": {
-        "main": [
-          [
-            {
-              "node": "Construire l'email",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Construire l'email": {
-        "main": [
-          [
-            {
-              "node": "Envoyer la newsletter",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Envoyer la newsletter": {
-        "main": [
-          [
-            {
-              "node": "Enregistrer l'envoi",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      }
-    },
-    "settings": {
-      "executionOrder": "v1",
-      "binaryMode": "separate"
-    },
-    "meta": {
-      "templateCredsSetupCompleted": true
-    },
-    "nodeGroups": [],
-    "versionId": "d6777e0c-7fa2-4fe6-8790-9da4da124211",
-    "activeVersionId": null,
-    "versionCounter": 59,
-    "triggerCount": 0,
-    "sourceWorkflowId": null,
-    "tags": [],
-    "versionMetadata": {
-      "name": null,
-      "description": null
     }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Utilisateurs à servir",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Utilisateurs à servir": {
+      "main": [
+        [
+          {
+            "node": "Articles pour l'utilisateur",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Articles pour l'utilisateur": {
+      "main": [
+        [
+          {
+            "node": "A des articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A des articles": {
+      "main": [
+        [
+          {
+            "node": "Préparer les articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Préparer les articles": {
+      "main": [
+        [
+          {
+            "node": "Construire l'email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Construire l'email": {
+      "main": [
+        [
+          {
+            "node": "Envoyer la newsletter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Envoyer la newsletter": {
+      "main": [
+        [
+          {
+            "node": "Enregistrer l'envoi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "nodeGroups": [],
+  "versionId": "d6777e0c-7fa2-4fe6-8790-9da4da124211",
+  "activeVersionId": null,
+  "versionCounter": 59,
+  "triggerCount": 0,
+  "sourceWorkflowId": null,
+  "tags": [],
+  "versionMetadata": {
+    "name": null,
+    "description": null
   }
-]
+}

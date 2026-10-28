@@ -1,408 +1,406 @@
-[
-  {
-    "updatedAt": "2026-10-28T11:11:57.223Z",
-    "createdAt": "2026-10-28T10:21:00.172Z",
-    "id": "7tqdTDCdDhXdIczI",
-    "name": "[B] News - Désinscription",
-    "description": null,
-    "active": true,
-    "isArchived": false,
-    "nodes": [
-      {
-        "parameters": {
-          "path": "unsubscribe",
-          "responseMode": "responseNode",
-          "options": {}
-        },
-        "type": "n8n-nodes-base.webhook",
-        "typeVersion": 2.2,
-        "position": [
-          0,
-          0
-        ],
-        "id": "0c9873aa-3b44-4f4c-8aa8-05ba2d31e742",
-        "name": "Webhook",
-        "webhookId": "148170a8-cd7c-47cd-9dd0-2e7aa35c4d61"
+{
+  "updatedAt": "2026-10-28T11:11:57.223Z",
+  "createdAt": "2026-10-28T10:21:00.172Z",
+  "id": "7tqdTDCdDhXdIczI",
+  "name": "[B] News - Désinscription",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "path": "unsubscribe",
+        "responseMode": "responseNode",
+        "options": {}
       },
-      {
-        "parameters": {
-          "conditions": {
-            "options": {
-              "caseSensitive": true,
-              "leftValue": "",
-              "typeValidation": "strict",
-              "version": 4
-            },
-            "conditions": [
-              {
-                "id": "1250fcd3-9624-4054-b223-4fb4a39efa8e",
-                "leftValue": "={{ $json.query.token }}",
-                "rightValue": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-                "operator": {
-                  "type": "string",
-                  "operation": "regex"
-                }
-              }
-            ],
-            "combinator": "and"
-          },
-          "options": {}
-        },
-        "type": "n8n-nodes-base.if",
-        "typeVersion": 2.4,
-        "position": [
-          176,
-          0
-        ],
-        "id": "3511cfe6-a50a-4c97-82bc-23f420d1c366",
-        "name": "Jeton bien formé ?"
-      },
-      {
-        "parameters": {
-          "respondWith": "text",
-          "responseBody": "<div style=\"font-family:Arial,sans-serif;max-width:500px;margin:80px auto;text-align:center\">\n  <h1>Lien invalide</h1>\n  <p>Ce lien de désinscription n'est pas valide ou a déjà été utilisé.</p>\n</div>",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "0c9873aa-3b44-4f4c-8aa8-05ba2d31e742",
+      "name": "Webhook",
+      "webhookId": "148170a8-cd7c-47cd-9dd0-2e7aa35c4d61"
+    },
+    {
+      "parameters": {
+        "conditions": {
           "options": {
-            "responseHeaders": {
-              "entries": [
-                {
-                  "name": "Content-Type",
-                  "value": "text/html; charset=utf-8"
-                }
-              ]
-            }
-          }
-        },
-        "type": "n8n-nodes-base.respondToWebhook",
-        "typeVersion": 1.5,
-        "position": [
-          848,
-          208
-        ],
-        "id": "c28f9afe-82cb-4291-b87a-9c06980a5651",
-        "name": "Lien invalide"
-      },
-      {
-        "parameters": {
-          "operation": "select",
-          "schema": {
-            "__rl": true,
-            "mode": "list",
-            "value": "public"
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
           },
-          "table": {
-            "__rl": true,
-            "value": "users",
-            "mode": "name"
-          },
-          "limit": 1,
-          "where": {
-            "values": [
-              {
-                "column": "unsubscribe_token",
-                "value": "={{ $json.query.token }}"
-              }
-            ]
-          },
-          "options": {
-            "outputColumns": [
-              "id"
-            ]
-          }
-        },
-        "type": "n8n-nodes-base.postgres",
-        "typeVersion": 2.7,
-        "position": [
-          400,
-          0
-        ],
-        "id": "1f7a3470-6314-4e8a-8d91-be5070732ca3",
-        "name": "Trouver utilisateur",
-        "alwaysOutputData": true,
-        "credentials": {
-          "postgres": {
-            "id": "NVYHYZPCSYpCPKph",
-            "name": "postgres (à configurer)"
-          }
-        }
-      },
-      {
-        "parameters": {
-          "conditions": {
-            "options": {
-              "caseSensitive": true,
-              "leftValue": "",
-              "typeValidation": "strict",
-              "version": 4
-            },
-            "conditions": [
-              {
-                "id": "b0b254e4-d875-44d6-b5de-96bdb0b80094",
-                "leftValue": "={{ $json.id }}",
-                "rightValue": "",
-                "operator": {
-                  "type": "string",
-                  "operation": "exists",
-                  "singleValue": true
-                }
-              }
-            ],
-            "combinator": "and"
-          },
-          "options": {}
-        },
-        "type": "n8n-nodes-base.if",
-        "typeVersion": 2.4,
-        "position": [
-          624,
-          0
-        ],
-        "id": "e5bc0099-5bd6-47c4-9da0-4b4b3c59e1c8",
-        "name": "Utilisateur trouvé ?"
-      },
-      {
-        "parameters": {
-          "schema": {
-            "__rl": true,
-            "mode": "list",
-            "value": "public"
-          },
-          "table": {
-            "__rl": true,
-            "value": "audit_log",
-            "mode": "list",
-            "cachedResultName": "audit_log"
-          },
-          "columns": {
-            "mappingMode": "defineBelow",
-            "value": {
-              "event": "unsubscribed",
-              "user_id": "={{ $('Trouver utilisateur').item.json.id }}"
-            },
-            "matchingColumns": [
-              "id"
-            ],
-            "schema": [
-              {
-                "id": "id",
-                "displayName": "id",
-                "required": false,
-                "defaultMatch": true,
-                "display": true,
-                "type": "number",
-                "canBeUsedToMatch": true,
-                "removed": true
-              },
-              {
-                "id": "event",
-                "displayName": "event",
-                "required": true,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": true
-              },
-              {
-                "id": "user_id",
-                "displayName": "user_id",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": true
-              },
-              {
-                "id": "details",
-                "displayName": "details",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "object",
-                "canBeUsedToMatch": true,
-                "removed": true
-              },
-              {
-                "id": "created_at",
-                "displayName": "created_at",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "dateTime",
-                "canBeUsedToMatch": true,
-                "removed": true
-              }
-            ],
-            "attemptToConvertTypes": false,
-            "convertFieldsToString": false
-          },
-          "options": {}
-        },
-        "type": "n8n-nodes-base.postgres",
-        "typeVersion": 2.7,
-        "position": [
-          1072,
-          -48
-        ],
-        "id": "8361474f-4b51-40cf-912d-b209f1703906",
-        "name": "Noter dans le journal",
-        "credentials": {
-          "postgres": {
-            "id": "NVYHYZPCSYpCPKph",
-            "name": "postgres (à configurer)"
-          }
-        }
-      },
-      {
-        "parameters": {
-          "respondWith": "text",
-          "responseBody": "<div style=\"font-family:Arial,sans-serif;max-width:500px;margin:80px auto;text-align:center\">\n  <h1>Désinscription confirmée</h1>\n  <p>Tu ne recevras plus la newsletter Persona.</p>\n</div>",
-          "options": {
-            "responseHeaders": {
-              "entries": [
-                {
-                  "name": "Content-Type",
-                  "value": "text/html; charset=utf-8"
-                }
-              ]
-            }
-          }
-        },
-        "type": "n8n-nodes-base.respondToWebhook",
-        "typeVersion": 1.5,
-        "position": [
-          1280,
-          -48
-        ],
-        "id": "460c727f-c285-4205-b8f8-b9256375725b",
-        "name": "Désinscription confirmée"
-      },
-      {
-        "parameters": {
-          "operation": "executeQuery",
-          "query": "UPDATE preferences SET is_active = false WHERE user_id = $1::uuid;",
-          "options": {
-            "queryReplacement": "={{ [ $json.id ] }}"
-          }
-        },
-        "type": "n8n-nodes-base.postgres",
-        "typeVersion": 2.7,
-        "position": [
-          848,
-          0
-        ],
-        "id": "2e73f933-f4ee-4c5f-b354-2dbd5c1aa084",
-        "name": "Désactiver l'abonnement",
-        "credentials": {
-          "postgres": {
-            "id": "NVYHYZPCSYpCPKph",
-            "name": "postgres (à configurer)"
-          }
-        }
-      }
-    ],
-    "connections": {
-      "Webhook": {
-        "main": [
-          [
+          "conditions": [
             {
-              "node": "Jeton bien formé ?",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Jeton bien formé ?": {
-        "main": [
-          [
-            {
-              "node": "Trouver utilisateur",
-              "type": "main",
-              "index": 0
+              "id": "1250fcd3-9624-4054-b223-4fb4a39efa8e",
+              "leftValue": "={{ $json.query.token }}",
+              "rightValue": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
             }
           ],
-          [
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        176,
+        0
+      ],
+      "id": "3511cfe6-a50a-4c97-82bc-23f420d1c366",
+      "name": "Jeton bien formé ?"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "<div style=\"font-family:Arial,sans-serif;max-width:500px;margin:80px auto;text-align:center\">\n  <h1>Lien invalide</h1>\n  <p>Ce lien de désinscription n'est pas valide ou a déjà été utilisé.</p>\n</div>",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        848,
+        208
+      ],
+      "id": "c28f9afe-82cb-4291-b87a-9c06980a5651",
+      "name": "Lien invalide"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "users",
+          "mode": "name"
+        },
+        "limit": 1,
+        "where": {
+          "values": [
             {
-              "node": "Lien invalide",
-              "type": "main",
-              "index": 0
+              "column": "unsubscribe_token",
+              "value": "={{ $json.query.token }}"
             }
           ]
-        ]
-      },
-      "Trouver utilisateur": {
-        "main": [
-          [
-            {
-              "node": "Utilisateur trouvé ?",
-              "type": "main",
-              "index": 0
-            }
+        },
+        "options": {
+          "outputColumns": [
+            "id"
           ]
-        ]
+        }
       },
-      "Utilisateur trouvé ?": {
-        "main": [
-          [
-            {
-              "node": "Désactiver l'abonnement",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "Lien invalide",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Noter dans le journal": {
-        "main": [
-          [
-            {
-              "node": "Désinscription confirmée",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Désinscription confirmée": {
-        "main": [
-          []
-        ]
-      },
-      "Désactiver l'abonnement": {
-        "main": [
-          [
-            {
-              "node": "Noter dans le journal",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        400,
+        0
+      ],
+      "id": "1f7a3470-6314-4e8a-8d91-be5070732ca3",
+      "name": "Trouver utilisateur",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "NVYHYZPCSYpCPKph",
+          "name": "postgres (à configurer)"
+        }
       }
     },
-    "settings": {
-      "executionOrder": "v1",
-      "binaryMode": "separate"
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "b0b254e4-d875-44d6-b5de-96bdb0b80094",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        624,
+        0
+      ],
+      "id": "e5bc0099-5bd6-47c4-9da0-4b4b3c59e1c8",
+      "name": "Utilisateur trouvé ?"
     },
-    "meta": {
-      "templateCredsSetupCompleted": true
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "audit_log",
+          "mode": "list",
+          "cachedResultName": "audit_log"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "event": "unsubscribed",
+            "user_id": "={{ $('Trouver utilisateur').item.json.id }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "event",
+              "displayName": "event",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "details",
+              "displayName": "details",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1072,
+        -48
+      ],
+      "id": "8361474f-4b51-40cf-912d-b209f1703906",
+      "name": "Noter dans le journal",
+      "credentials": {
+        "postgres": {
+          "id": "NVYHYZPCSYpCPKph",
+          "name": "postgres (à configurer)"
+        }
+      }
     },
-    "nodeGroups": [],
-    "versionId": "660ae041-3abd-4302-9f91-5a68d63618e2",
-    "activeVersionId": "660ae041-3abd-4302-9f91-5a68d63618e2",
-    "versionCounter": 91,
-    "triggerCount": 1,
-    "sourceWorkflowId": null,
-    "tags": [],
-    "versionMetadata": {
-      "name": "v1 - Désinscription en un clic",
-      "description": ""
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "<div style=\"font-family:Arial,sans-serif;max-width:500px;margin:80px auto;text-align:center\">\n  <h1>Désinscription confirmée</h1>\n  <p>Tu ne recevras plus la newsletter Persona.</p>\n</div>",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1280,
+        -48
+      ],
+      "id": "460c727f-c285-4205-b8f8-b9256375725b",
+      "name": "Désinscription confirmée"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE preferences SET is_active = false WHERE user_id = $1::uuid;",
+        "options": {
+          "queryReplacement": "={{ [ $json.id ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        848,
+        0
+      ],
+      "id": "2e73f933-f4ee-4c5f-b354-2dbd5c1aa084",
+      "name": "Désactiver l'abonnement",
+      "credentials": {
+        "postgres": {
+          "id": "NVYHYZPCSYpCPKph",
+          "name": "postgres (à configurer)"
+        }
+      }
     }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Jeton bien formé ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jeton bien formé ?": {
+      "main": [
+        [
+          {
+            "node": "Trouver utilisateur",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Lien invalide",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trouver utilisateur": {
+      "main": [
+        [
+          {
+            "node": "Utilisateur trouvé ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Utilisateur trouvé ?": {
+      "main": [
+        [
+          {
+            "node": "Désactiver l'abonnement",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Lien invalide",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Noter dans le journal": {
+      "main": [
+        [
+          {
+            "node": "Désinscription confirmée",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Désinscription confirmée": {
+      "main": [
+        []
+      ]
+    },
+    "Désactiver l'abonnement": {
+      "main": [
+        [
+          {
+            "node": "Noter dans le journal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "nodeGroups": [],
+  "versionId": "660ae041-3abd-4302-9f91-5a68d63618e2",
+  "activeVersionId": "660ae041-3abd-4302-9f91-5a68d63618e2",
+  "versionCounter": 91,
+  "triggerCount": 1,
+  "sourceWorkflowId": null,
+  "tags": [],
+  "versionMetadata": {
+    "name": "v1 - Désinscription en un clic",
+    "description": ""
   }
-]
+}

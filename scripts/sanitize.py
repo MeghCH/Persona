@@ -52,7 +52,11 @@ def sanitize(path: Path) -> list[str]:
             for cred_type, cred in node.get("credentials", {}).items():
                 cred["name"] = f"{cred_type} (à configurer)"
             clean_headers(node, warnings)
+            scan_secrets(node.get("parameters", {}), node["name"], warnings)
 
+        if isinstance(data, list) and len(data) == 1:
+            data = data[0]
+            warnings.append("  - liste retirée : workflow seul, importable par l'interface")
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return warnings
 

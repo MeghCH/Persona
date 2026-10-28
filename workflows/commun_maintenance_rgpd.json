@@ -1,85 +1,83 @@
-[
-  {
-    "updatedAt": "2026-10-28T11:27:05.256Z",
-    "createdAt": "2026-10-28T11:23:19.121Z",
-    "id": "7yCxC8evf0nnA0KJ",
-    "name": "[Commun] Maintenance RGPD",
-    "description": null,
-    "active": true,
-    "isArchived": false,
-    "nodes": [
-      {
-        "parameters": {
-          "rule": {
-            "interval": [
-              {
-                "field": "cronExpression",
-                "expression": "0 3 * * *"
-              }
-            ]
-          }
-        },
-        "type": "n8n-nodes-base.scheduleTrigger",
-        "typeVersion": 1.4,
-        "position": [
-          0,
-          0
-        ],
-        "id": "f1e61164-d3d2-4b1a-9fc4-740302375b10",
-        "name": "Schedule Trigger"
-      },
-      {
-        "parameters": {
-          "operation": "executeQuery",
-          "query": "SELECT persona_cleanup();\nINSERT INTO audit_log (event) VALUES ('retention_cleanup');",
-          "options": {}
-        },
-        "type": "n8n-nodes-base.postgres",
-        "typeVersion": 2.7,
-        "position": [
-          224,
-          0
-        ],
-        "id": "4939fada-4da9-46db-ab4f-17dd4239e498",
-        "name": "Appliquer les durées de conservation",
-        "credentials": {
-          "postgres": {
-            "id": "NVYHYZPCSYpCPKph",
-            "name": "postgres (à configurer)"
-          }
-        }
-      }
-    ],
-    "connections": {
-      "Schedule Trigger": {
-        "main": [
-          [
+{
+  "updatedAt": "2026-10-28T11:27:05.256Z",
+  "createdAt": "2026-10-28T11:23:19.121Z",
+  "id": "7yCxC8evf0nnA0KJ",
+  "name": "[Commun] Maintenance RGPD",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
             {
-              "node": "Appliquer les durées de conservation",
-              "type": "main",
-              "index": 0
+              "field": "cronExpression",
+              "expression": "0 3 * * *"
             }
           ]
-        ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ],
+      "id": "f1e61164-d3d2-4b1a-9fc4-740302375b10",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT persona_cleanup();\nINSERT INTO audit_log (event) VALUES ('retention_cleanup');",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        224,
+        0
+      ],
+      "id": "4939fada-4da9-46db-ab4f-17dd4239e498",
+      "name": "Appliquer les durées de conservation",
+      "credentials": {
+        "postgres": {
+          "id": "NVYHYZPCSYpCPKph",
+          "name": "postgres (à configurer)"
+        }
       }
-    },
-    "settings": {
-      "executionOrder": "v1",
-      "binaryMode": "separate"
-    },
-    "meta": {
-      "templateCredsSetupCompleted": true
-    },
-    "nodeGroups": [],
-    "versionId": "b526ad79-5771-4eb4-b979-05da27519839",
-    "activeVersionId": "b526ad79-5771-4eb4-b979-05da27519839",
-    "versionCounter": 7,
-    "triggerCount": 1,
-    "sourceWorkflowId": null,
-    "tags": [],
-    "versionMetadata": {
-      "name": "v1 - Nettoyage RGPD nocturne",
-      "description": ""
     }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Appliquer les durées de conservation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "nodeGroups": [],
+  "versionId": "b526ad79-5771-4eb4-b979-05da27519839",
+  "activeVersionId": "b526ad79-5771-4eb4-b979-05da27519839",
+  "versionCounter": 7,
+  "triggerCount": 1,
+  "sourceWorkflowId": null,
+  "tags": [],
+  "versionMetadata": {
+    "name": "v1 - Nettoyage RGPD nocturne",
+    "description": ""
   }
-]
+}
