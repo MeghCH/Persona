@@ -1,8 +1,34 @@
 # Persona
 
 Chatbot (A) et newsletter personnalisée (B), construits avec n8n et PostgreSQL.
-Les sections 1 à 5 décrivent la mise en place (Phase 0), la section 6 les
-workflows réalisés.
+Les sections 1 à 5 détaillent la mise en place (Phase 0), la section 6 les workflows réalisés.
+
+## Lancer le projet
+
+Il faut Docker et Git.
+
+```bash
+bash scripts/setup.sh
+```
+
+Au premier lancement, le script crée `.env` : remplir les mots de passe, puis relancer
+la commande. Elle démarre tout, prépare la base et importe les workflows.
+
+Ensuite, la première fois seulement, sur http://localhost:5678 :
+
+1. Créer son compte n8n.
+2. Créer les credentials `Postgres Persona` (valeurs en section 2), `LLM Persona` (clé Gemini) et `SMTP Persona`.
+3. Dans chaque workflow, choisir ces credentials dans les nœuds en rouge, puis activer le workflow.
+
+Le chatbot est sur **http://localhost:8090** : cliquer sur la bulle et taper `inscription`.
+
+Les fois suivantes, `bash scripts/setup.sh` suffit aussi. Pour arrêter : `docker compose down`.
+
+Si ça ne marche pas :
+
+- La page ne répond pas : sous WSL, garder un terminal Ubuntu ouvert.
+- « Error in workflow » : relancer `bash scripts/setup.sh`.
+- « Désolé, je n'ai pas pu traiter votre demande » : le quota Gemini du jour est épuisé.
 
 ## 1. Installation (chacun sur sa machine)
 
