@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Persona</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/@n8n/chat@1.43.0/dist/style.css" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f5f8fd;
+      --surface: #ffffff;
+      --ink: #0f1b33;
+      --muted: #56627a;
+      --line: #dfe6f2;
+      --accent: #2563eb;
+      --accent-ink: #ffffff;
+      --accent-soft: #dbe7fe;
+      --code-bg: #ebf1fb;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #0b1324;
+        --surface: #121d33;
+        --ink: #e6edf9;
+        --muted: #93a2bd;
+        --line: #1f2c47;
+        --accent: #5b9bff;
+        --accent-ink: #061024;
+        --accent-soft: #15284a;
+        --code-bg: #182541;
+      }
+    }
+    :root[data-theme="dark"] {
+      --bg: #0b1324;
+      --surface: #121d33;
+      --ink: #e6edf9;
+      --muted: #93a2bd;
+      --line: #1f2c47;
+      --accent: #5b9bff;
+      --accent-ink: #061024;
+      --accent-soft: #15284a;
+      --code-bg: #182541;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 400 17px/1.6 Inter, system-ui, sans-serif;
+    }
+    .wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+
+    header { padding: 24px 0; }
+    header .wrap { display: flex; align-items: center; justify-content: space-between; }
+    .logo { font: 600 24px/1 Fraunces, Georgia, serif; letter-spacing: -0.01em; }
+    .logo span { color: var(--accent); }
+    .tag {
+      font-size: 13px; color: var(--muted);
+      border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px;
+    }
+
+    .hero { padding: 72px 0 64px; }
+    .hero h1 {
+      font: 600 clamp(38px, 6vw, 64px)/1.05 Fraunces, Georgia, serif;
+      letter-spacing: -0.02em; margin: 0 0 24px; max-width: 14ch;
+    }
+    .hero p { font-size: 19px; color: var(--muted); max-width: 56ch; margin: 0 0 32px; }
+    .cta {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: var(--accent); color: var(--accent-ink);
+      border: 0; border-radius: 999px; padding: 14px 24px;
+      font: 600 16px/1 Inter, sans-serif; cursor: pointer;
+    }
+    .cta:hover { filter: brightness(1.05); }
+    .cta:focus-visible { outline: 3px solid var(--accent-soft); outline-offset: 3px; }
+    .sources { margin-top: 28px; font-size: 14px; color: var(--muted); }
+
+    section { padding: 56px 0; border-top: 1px solid var(--line); }
+    h2 { font: 600 28px/1.2 Fraunces, Georgia, serif; margin: 0 0 32px; }
+
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .step { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 24px; }
+    .step b {
+      display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 50%;
+      background: var(--accent-soft); color: var(--accent); font-weight: 600; margin-bottom: 14px;
+    }
+    .step h3 { margin: 0 0 8px; font-size: 18px; }
+    .step p { margin: 0; color: var(--muted); font-size: 15px; }
+
+    .commands { display: grid; gap: 10px; max-width: 720px; }
+    .cmd {
+      display: flex; justify-content: space-between; gap: 16px; align-items: baseline;
+      background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px;
+    }
+    .cmd code {
+      font: 500 14px/1.4 ui-monospace, "SFMono-Regular", Menlo, monospace;
+      background: var(--code-bg); padding: 3px 8px; border-radius: 6px; overflow-wrap: anywhere;
+    }
+    .cmd span { color: var(--muted); font-size: 14px; text-align: right; flex-shrink: 0; }
+
+    .privacy { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px 40px; padding: 0; margin: 0; list-style: none; }
+    .privacy li { padding-left: 28px; position: relative; color: var(--muted); }
+    .privacy li::before { content: "✓"; position: absolute; left: 0; color: var(--accent); font-weight: 600; }
+    .privacy strong { color: var(--ink); font-weight: 600; }
+
+    footer { padding: 32px 0 120px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); }
+
+    @media (max-width: 760px) {
+      .hero { padding: 40px 0; }
+      .steps, .privacy { grid-template-columns: 1fr; }
+      .cmd { flex-direction: column; gap: 6px; }
+      .cmd span { text-align: left; }
+    }
+
+    /* Widget de chat n8n */
+    :root {
+      --chat--font-family: Inter, system-ui, sans-serif;
+      --chat--color--primary: var(--accent);
+      --chat--color--primary-shade-50: var(--accent);
+      --chat--color--primary--shade-100: var(--accent);
+      --chat--color--secondary: var(--accent);
+      --chat--color-secondary-shade-50: var(--accent);
+      --chat--color-white: var(--surface);
+      --chat--color-light: var(--bg);
+      --chat--color-light-shade-50: var(--code-bg);
+      --chat--color-light-shade-100: var(--line);
+      --chat--color-medium: var(--line);
+      --chat--color-dark: var(--ink);
+      --chat--color-typing: var(--muted);
+      --chat--border-radius: 16px;
+      --chat--window--width: min(400px, calc(100vw - 32px));
+      --chat--window--height: min(620px, calc(100vh - 120px));
+      --chat--window--right: 16px;
+      --chat--window--bottom: 16px;
+      --chat--window--border: 1px solid var(--line);
+      --chat--window--border-radius: 20px;
+      --chat--header--background: var(--accent);
+      --chat--header--color: var(--accent-ink);
+      --chat--header--padding: 16px 20px;
+      --chat--header-height: auto;
+      --chat--heading--font-size: 20px;
+      --chat--subtitle--font-size: 14px;
+      --chat--body--background: var(--bg);
+      --chat--footer--background: var(--surface);
+      --chat--message--font-size: 15px;
+      --chat--message--border-radius: 14px;
+      --chat--message--bot--background: var(--surface);
+      --chat--message--bot--color: var(--ink);
+      --chat--message--bot--border: 1px solid var(--line);
+      --chat--message--user--background: var(--accent);
+      --chat--message--user--color: var(--accent-ink);
+      --chat--message--pre--background: var(--code-bg);
+      --chat--input--background: var(--surface);
+      --chat--input--text-color: var(--ink);
+      --chat--input--send--button--color: var(--accent);
+      --chat--toggle--background: var(--accent);
+      --chat--toggle--hover--background: var(--accent);
+      --chat--toggle--active--background: var(--accent);
+      --chat--toggle--color: var(--accent-ink);
+      --chat--toggle--size: 60px;
+    }
+    .chat-window-toggle { box-shadow: 0 8px 24px rgb(0 0 0 / 0.18); }
+    .chat-window { box-shadow: 0 24px 64px rgb(0 0 0 / 0.22); }
+    .chat-window textarea.pw-hidden { display: none; }
+    #pw-input {
+      flex: 1; min-width: 0; border: 0; outline: 0; background: transparent;
+      padding: var(--chat--input--padding, 0.8rem); color: var(--ink);
+      font: 400 15px/1.4 Inter, system-ui, sans-serif; letter-spacing: 0.08em;
+    }
+    #pw-input::placeholder { color: var(--muted); letter-spacing: normal; }
+    .chat-window .chat-header { height: auto; gap: 2px; }
+    .chat-window .chat-header h1 { margin: 0; font: 600 20px/1.2 Fraunces, Georgia, serif; }
+    .chat-window .chat-header p { margin: 0; opacity: 0.85; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <div class="logo">Persona<span>.</span></div>
+      <div class="tag">Prototype</div>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap hero">
+      <h1>Votre revue de presse, taillée sur mesure.</h1>
+      <p>Persona lit l'actualité pour vous, garde ce qui vous intéresse et vous l'envoie par email,
+        les jours et à l'heure qui vous conviennent. Tout se règle en discutant.</p>
+      <button class="cta" type="button" id="open-chat">Commencer la conversation</button>
+      <div class="sources">Sources : Le Monde · France Info · Numerama · BBC News</div>
+    </div>
+
+    <section>
+      <div class="wrap">
+        <h2>Comment ça marche</h2>
+        <div class="steps">
+          <div class="step"><b>1</b><h3>Créez votre compte</h3>
+            <p>Directement dans le chat, avec votre email et un mot de passe.</p></div>
+          <div class="step"><b>2</b><h3>Dites ce qui vous intéresse</h3>
+            <p>Espace, sport, économie… et quand vous voulez recevoir la newsletter.</p></div>
+          <div class="step"><b>3</b><h3>Recevez l'essentiel</h3>
+            <p>Un résumé de chaque article et le lien vers la source.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <h2>Quelques messages pour commencer</h2>
+        <div class="commands">
+          <div class="cmd"><code>inscription</code><span>créer un compte, le chat vous guide</span></div>
+          <div class="cmd"><code>connexion</code><span>se connecter</span></div>
+          <div class="cmd"><code>Je veux des news sur l'espace le lundi à 7h</code><span>régler sa newsletter</span></div>
+          <div class="cmd"><code>mes données</code><span>voir ce que Persona conserve</span></div>
+          <div class="cmd"><code>supprimer mon compte</code><span>tout effacer</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <h2>Vos données</h2>
+        <ul class="privacy">
+          <li><strong>Le strict nécessaire.</strong> Votre email, vos centres d'intérêt et vos horaires, rien de plus.</li>
+          <li><strong>Mot de passe protégé.</strong> Il est haché : personne ne peut le relire, pas même nous.</li>
+          <li><strong>Accès à tout moment.</strong> Écrivez « mes données » pour voir tout ce que nous conservons.</li>
+          <li><strong>Départ en un message.</strong> « supprimer mon compte », ou le lien de désinscription de chaque email.</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">Persona, projet Epitech. Prototype construit avec n8n.</div>
+  </footer>
+
+  <div id="n8n-chat"></div>
+
+  <script type="module">
+    import { createChat } from 'https://cdn.jsdelivr.net/npm/@n8n/chat@1.43.0/dist/chat.bundle.es.js';
+
+    createChat({
+      webhookUrl: 'http://localhost:5678/webhook/9d5a3c0e-6c1e-4b6e-9a53-2f0c7a8f4a11/chat',
+      target: '#n8n-chat',
+      mode: 'window',
+      showWelcomeScreen: false,
+      loadPreviousSession: false,
+      defaultLanguage: 'en',
+      initialMessages: [
+        'Bonjour 👋 Je suis Persona. Je prépare une newsletter selon vos centres d\'intérêt.',
+        'Nouveau ? Tapez **inscription**. Déjà inscrit ? Tapez **connexion**. Je vous guide pas à pas.',
+      ],
+      i18n: {
+        en: {
+          title: 'Persona',
+          subtitle: 'Votre newsletter personnalisée',
+          footer: '',
+          getStarted: 'Nouvelle conversation',
+          inputPlaceholder: 'Écrivez votre message…',
+          closeButtonTooltip: 'Fermer',
+        },
+      },
+    });
+
+    // Mots de passe masqués : quand le bot demande un mot de passe, la zone de saisie devient un vrai
+    // champ mot de passe, et le message envoyé s'affiche en points. (Côté serveur, il est haché en bcrypt.)
+    const PW_PROMPT = /choisissez un (autre )?mot de passe|votre mot de passe \?|retapez votre mot de passe/i;
+    const MASK = '••••••••';
+    let maskNextUserMessage = false;
+
+    function lastBotText() {
+      const msgs = document.querySelectorAll('.chat-message-from-bot');
+      return msgs.length ? msgs[msgs.length - 1].innerText : '';
+    }
+
+    function setTextarea(ta, value) {
+      // passe par le setter natif pour que le widget (Vue) voie la valeur
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, value);
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    function updatePasswordField() {
+      const box = document.querySelector('.chat-window .chat-inputs');
+      if (!box) return;
+      const ta = box.querySelector('textarea');
+      let pw = box.querySelector('#pw-input');
+      const botText = lastBotText();
+      const wanted = PW_PROMPT.test(botText);
+
+      if (wanted && !pw) {
+        pw = document.createElement('input');
+        pw.type = 'password';
+        pw.id = 'pw-input';
+        pw.placeholder = 'Mot de passe (masqué)';
+        pw.autocomplete = /choisissez/i.test(botText) ? 'new-password' : 'current-password';
+        pw.addEventListener('input', () => setTextarea(ta, pw.value));
+        pw.addEventListener('keydown', (e) => {
+          if (e.key !== 'Enter' || !pw.value) return;
+          e.preventDefault();
+          maskNextUserMessage = true;
+          ta.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
+        });
+        box.insertBefore(pw, ta);
+        ta.classList.add('pw-hidden');
+        pw.focus();
+      } else if (!wanted && pw) {
+        pw.remove();
+        ta.classList.remove('pw-hidden');
+        ta.focus();  // sinon le focus est perdu et la saisie suivante part dans le vide
+      }
+    }
+
+    // clic sur le bouton d'envoi pendant une saisie de mot de passe
+    document.addEventListener('click', (e) => {
+      if (e.target.closest('.chat-input-send-button') && document.getElementById('pw-input')) {
+        maskNextUserMessage = true;
+      }
+    }, true);
+
+    new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        for (const n of m.addedNodes) {
+          if (maskNextUserMessage && n.nodeType === 1 && n.matches('.chat-message-from-user')) {
+            const body = n.querySelector('.chat-message-markdown') || n;
+            body.textContent = MASK;
+            maskNextUserMessage = false;
+            const pw = document.getElementById('pw-input');
+            if (pw) pw.value = '';
+          }
+        }
+      }
+      updatePasswordField();
+    }).observe(document.body, { childList: true, subtree: true });
+
+    // Le bouton de la page ouvre la même bulle que celle en bas à droite
+    document.getElementById('open-chat').addEventListener('click', () => {
+      const toggle = document.querySelector('.chat-window-toggle');
+      const win = document.querySelector('.chat-window');
+      if (toggle && !(win && win.offsetParent)) toggle.click();
+    });
+  </script>
+</body>
+</html>

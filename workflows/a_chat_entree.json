@@ -1,0 +1,2061 @@
+{
+  "id": "PersonaChatEntr1",
+  "name": "[A] Chat - Entrée",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "mode": "hostedChat",
+        "authentication": "none",
+        "initialMessages": "Bienvenue sur Persona 📰 Je prépare une newsletter personnalisée selon vos centres d'intérêt.\nNouveau ? Tapez « inscription ». Déjà inscrit ? Tapez « connexion ». Je vous guide pas à pas.\nÀ tout moment : « mes données » (export), « supprimer mon compte », ou lien de désinscription dans chaque email.",
+        "options": {
+          "allowedOrigins": "http://localhost:5678,http://localhost:8090,http://127.0.0.1:8090",
+          "responseMode": "lastNode",
+          "title": "Persona",
+          "subtitle": "Votre newsletter personnalisée"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        0,
+        400
+      ],
+      "id": "d83dd118-2609-5b80-9028-6568eee4c524",
+      "name": "Recevoir le message",
+      "webhookId": "9d5a3c0e-6c1e-4b6e-9a53-2f0c7a8f4a11"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst out = { route: 'error', cmd: 'error', sessionId: '', message: '', raw: '', exact: '', email: '', password: '', error: '' };\nconst fail = (msg) => {\n  // jamais de mot de passe ni de texte brut dans une branche d'erreur\n  Object.assign(out, { route: 'error', cmd: 'error', error: msg, password: '', message: '', raw: '' });\n  return [{ json: out }];\n};\n\n// 1. L'identifiant de session fait office de jeton : on refuse les valeurs devinables.\nconst sessionId = typeof input.sessionId === 'string' ? input.sessionId : '';\nif (!/^[A-Za-z0-9_-]{32,64}$/.test(sessionId)) {\n  return fail('Session invalide : rechargez la page du chat.');\n}\nout.sessionId = sessionId;\n\n// 2. Nettoyage du texte : Unicode normalisé, caractères de contrôle et invisibles retirés.\nlet text = typeof input.chatInput === 'string' ? input.chatInput : '';\ntext = text.normalize('NFKC')\n  .replace(/[\\u200b-\\u200f\\u202a-\\u202e\\u2060-\\u2064\\ufeff\\u00ad]/g, '')  // invisibles : supprim\\u00e9s (sinon \"ig\\u200bnore\" contourne le filtre)\n  .replace(/[\\u0000-\\u001f\\u007f\\u2028\\u2029]/g, ' ')\n  .replace(/\\u2019/g, \"'\")\n  .trim();\nif (!text) return fail('Message vide.');\nif (text.length > 1000) return fail('Message trop long (1000 caractères maximum).');\n\nconst strip = (s) => s.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');\nconst EMAIL_RE = /^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,}$/;\nconst bytes = (s) => new TextEncoder().encode(s).length;\nconst pwdError = (pwd, email) => {\n  if (bytes(pwd) > 72) return 'Mot de passe trop long (72 octets maximum).';\n  if (pwd.length < 12) return 'Mot de passe trop court (12 caractères minimum).';\n  const classes = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^A-Za-z0-9]/].filter((r) => r.test(pwd)).length;\n  if (classes < 3) return 'Mot de passe trop faible : mélangez au moins 3 types parmi minuscules, majuscules, chiffres et symboles.';\n  const name = email.split('@')[0].toLowerCase();  // ignoré s'il est trop court (ex. a.a@…)\n  if (name.length >= 4 && pwd.toLowerCase().includes(name)) return 'Le mot de passe ne doit pas contenir votre identifiant email.';\n  return '';\n};\n\nconst parts = text.split(/\\s+/);\nconst head = strip(parts[0]);\nconst exact = strip(text).replace(/[.!?\\s]+$/, '');\n// raw : texte complet, utilisé quand le message répond à une étape guidée (email, mot de passe…)\nout.raw = text;\nout.exact = exact;\n\nconst START_REGISTER = ['inscription', \"s'inscrire\", 'sinscrire', \"je veux m'inscrire\", 'je veux minscrire',\n  'creer un compte', 'creer mon compte', 'nouveau compte', 'sign up', 'register'];\nconst START_LOGIN = ['connexion', 'se connecter', 'je veux me connecter', \"m'identifier\", 'login', 'log in', 'sign in'];\n\nif (START_REGISTER.includes(exact)) {\n  Object.assign(out, { route: 'session', cmd: 'register_start' });\n} else if (START_LOGIN.includes(exact)) {\n  Object.assign(out, { route: 'session', cmd: 'login_start' });\n} else if (['annuler', 'cancel', 'stop'].includes(exact)) {\n  Object.assign(out, { route: 'session', cmd: 'cancel' });\n} else if (head === 'inscription') {\n  // inscription EMAIL MOT_DE_PASSE j'accepte\n  if (parts.length !== 4) return fail(\"Pour créer un compte, tapez simplement « inscription » : je vous guide étape par étape.\");\n  const email = parts[1].toLowerCase();\n  const password = parts[2];\n  if (email.length > 254 || !EMAIL_RE.test(email)) return fail('Adresse email invalide.');\n  const pe = pwdError(password, email);\n  if (pe) return fail(pe);\n  if (![\"accepte\", \"j'accepte\", 'jaccepte'].includes(strip(parts[3]))) {\n    return fail(\"Le consentement est obligatoire : terminez la commande par « j'accepte ».\");\n  }\n  Object.assign(out, { route: 'register', cmd: 'register', email, password, raw: '' });\n} else if (head === 'connexion') {\n  // connexion EMAIL MOT_DE_PASSE\n  if (parts.length !== 3) return fail('Pour vous connecter, tapez simplement « connexion » : je vous guide étape par étape.');\n  const email = parts[1].toLowerCase();\n  const password = parts[2];\n  if (email.length > 254 || !EMAIL_RE.test(email) || bytes(password) > 72) {\n    return fail('Pour vous connecter, tapez simplement « connexion » : je vous guide étape par étape.');\n  }\n  Object.assign(out, { route: 'login', cmd: 'login', email, password, raw: '' });\n} else {\n  out.route = 'session';\n  if (['deconnexion', 'logout'].includes(exact)) out.cmd = 'logout';\n  else if (exact === 'supprimer mon compte') out.cmd = 'delete_request';\n  else if (exact === 'confirmer suppression') out.cmd = 'delete_confirm';\n  else if (['mes donnees', 'exporter mes donnees'].includes(exact)) out.cmd = 'export';\n  else if (['aide', 'help'].includes(exact)) out.cmd = 'help';\n  else { out.cmd = 'chat'; out.message = text; }\n}\nreturn [{ json: out }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        400
+      ],
+      "id": "d4f81609-a9fc-59e9-8ce8-c6bcc1f686e1",
+      "name": "Analyser le message"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "be816bda-b294-5bcf-ab81-827a4fc97853",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "error",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "error"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "6f344731-94e0-5303-a62f-51a17e443dd7",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "register",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "register"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "75b02d07-d1ea-54c8-a7d8-5e2492e7a396",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "login",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "login"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "264f9721-bd25-57f3-b5a1-f14b1bbae5f2",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "session",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "session"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        480,
+        400
+      ],
+      "id": "d93b909b-dc01-5e77-ac07-9f75f2553c56",
+      "name": "Choisir le parcours"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "98b7f993-de8f-5d2f-ae7f-14b721ae3a12",
+              "name": "output",
+              "value": "={{ $json.error }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        760,
+        40
+      ],
+      "id": "f26b5e05-e405-5352-8f87-ba94ba8fd962",
+      "name": "Répondre erreur de saisie"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH new_user AS (\n  INSERT INTO users (email, password_hash, consent_given_at, consent_version)\n  VALUES ($1::text, crypt($2::text, gen_salt('bf', 12)), now(), 'v1')\n  ON CONFLICT (email) DO NOTHING\n  RETURNING id\n), prefs AS (\n  INSERT INTO preferences (user_id) SELECT id FROM new_user\n), log_ok AS (\n  INSERT INTO audit_log (event, user_id, details)\n  SELECT 'register_ok', id, '{}'::jsonb FROM new_user\n), log_dup AS (\n  INSERT INTO audit_log (event, details)\n  SELECT 'register_duplicate', '{}'::jsonb WHERE NOT EXISTS (SELECT 1 FROM new_user)\n)\nSELECT 'done' AS status;",
+        "options": {
+          "queryReplacement": "={{ [ $json.email, $json.password ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        760,
+        200
+      ],
+      "id": "e3263f5e-d49f-53e1-be59-1863b61d7d34",
+      "name": "Créer le compte",
+      "credentials": {
+        "postgres": {
+          "id": "NVYHYZPCSYpCPKph",
+          "name": "postgres (à configurer)"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "70b8d425-4f32-5e22-b862-23f823ad87f5",
+              "name": "output",
+              "value": "=Si cette adresse était disponible, votre compte est créé. Connectez-vous avec : connexion EMAIL MOT_DE_PASSE",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1000,
+        200
+      ],
+      "id": "7b176f13-2601-564d-ae02-5bd7e21518c5",
+      "name": "Répondre inscription"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH target AS (\n  SELECT id, password_hash, locked_until, failed_login_attempts\n  FROM users WHERE email = $1::text\n), state AS (\n  SELECT id, failed_login_attempts AS fails,\n         (locked_until IS NOT NULL AND locked_until > now()) AS locked,\n         (password_hash = crypt($2::text, password_hash)) AS ok\n  FROM target\n), dummy AS (\n  -- inconnu : on calcule quand même un hash pour que le temps de réponse ne révèle rien\n  SELECT crypt($2::text, gen_salt('bf', 12)) AS h WHERE NOT EXISTS (SELECT 1 FROM target)\n), bump AS (\n  UPDATE users u SET\n    failed_login_attempts = CASE WHEN s.locked THEN u.failed_login_attempts\n                                 WHEN s.ok THEN 0\n                                 ELSE u.failed_login_attempts + 1 END,\n    locked_until = CASE WHEN s.locked THEN u.locked_until\n                        WHEN s.ok THEN NULL\n                        WHEN u.failed_login_attempts + 1 >= 5 THEN now() + INTERVAL '15 minutes'\n                        ELSE u.locked_until END\n  FROM state s WHERE u.id = s.id\n  RETURNING u.id\n), sess AS (\n  INSERT INTO sessions (chat_session_id, user_id)\n  SELECT $3::text, s.id FROM state s WHERE s.ok AND NOT s.locked\n  ON CONFLICT (chat_session_id) DO UPDATE\n    SET user_id = EXCLUDED.user_id, created_at = now(), expires_at = now() + INTERVAL '2 hours'\n  RETURNING chat_session_id\n), clear_pending AS (\n  DELETE FROM auth_pending WHERE chat_session_id = $3::text AND EXISTS (SELECT 1 FROM sess)\n), log_known AS (\n  INSERT INTO audit_log (event, user_id, details)\n  SELECT CASE WHEN s.locked THEN 'login_blocked'\n              WHEN s.ok THEN 'login_ok'\n              WHEN s.fails + 1 >= 5 THEN 'account_locked'\n              ELSE 'login_failed' END,\n         s.id, '{}'::jsonb\n  FROM state s\n), log_unknown AS (\n  INSERT INTO audit_log (event, details)\n  SELECT 'login_failed_unknown', '{}'::jsonb WHERE NOT EXISTS (SELECT 1 FROM target)\n)\nSELECT CASE WHEN EXISTS (SELECT 1 FROM state WHERE ok AND NOT locked) THEN 'ok' ELSE 'denied' END AS status,\n       (SELECT count(*) FROM dummy) AS _pad;",
+        "options": {
+          "queryReplacement": "={{ [ $json.email, $json.password, $json.sessionId ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        760,
+        360
+      ],
+      "id": "ffdfcaef-e1b7-5fb4-9b03-aba1331a2457",
+      "name": "Vérifier les identifiants",
+      "credentials": {
+        "postgres": {
+          "id": "NVYHYZPCSYpCPKph",
+          "name": "postgres (à configurer)"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2f260f41-2046-54cb-9415-d5a9430cf0f4",
+              "name": "output",
+              "value": "={{ $json.status === 'ok' ? \"Connexion réussie ✅ Que souhaitez-vous modifier : centres d'intérêt, horaires d'envoi, email, ton, format ? (tapez « aide » pour la liste).\" : \"Identifiants invalides, ou compte temporairement verrouillé (15 minutes après 5 échecs).\" }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1000,
+        360
+      ],
+      "id": "38a799d9-2334-5e49-9f6b-e3e4678c71b7",
+      "name": "Répondre connexion"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH s AS (\n  UPDATE sessions\n  SET expires_at = LEAST(created_at + INTERVAL '8 hours', now() + INTERVAL '2 hours')\n  WHERE chat_session_id = $1::text\n    AND expires_at > now()\n    AND created_at + INTERVAL '8 hours' > now()\n  RETURNING user_id\n)\n-- toujours une ligne : utilisateur connecté (ou NULL) + étape guidée en cours (10 min max)\nSELECT (SELECT user_id FROM s) AS user_id, p.step, p.email\nFROM (SELECT 1) AS one\nLEFT JOIN auth_pending p ON p.chat_session_id = $1::text AND p.created_at > now() - INTERVAL '10 minutes';",
+        "options": {
+          "queryReplacement": "={{ [ $('Analyser le message').first().json.sessionId ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        760,
+        600
+      ],
+      "id": "558b5c69-08f8-564a-a7fd-bdda9c387a75",
+      "name": "Vérifier la session",
+      "credentials": {
+        "postgres": {
+          "id": "NVYHYZPCSYpCPKph",
+          "name": "postgres (à configurer)"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const a = $('Analyser le message').first().json;\nconst s = $input.first().json;\nlet action;\nif (['register_start', 'login_start', 'cancel'].includes(a.cmd)) action = a.cmd;\nelse if (!s.user_id && s.step) action = s.step;   // le message répond à l'étape guidée en cours\nelse if (!s.user_id) action = 'anonymous';\nelse action = a.cmd;\nreturn [{ json: { action, user_id: s.user_id || null, pending_email: s.email || '' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        600
+      ],
+      "id": "2a174bf0-0674-5e72-98eb-c5834aece422",
+      "name": "Choisir l'étape"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "3251de03-856d-52e9-981e-32c1e879a36e",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "anonymous",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "anonymous"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "0d5e5765-168d-57e1-8aa4-820b6a1a4235",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "logout",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "logout"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "3425fd39-7ee5-547f-9c26-d06c07483e92",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "delete_request",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "delete_request"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "2b0dba85-454b-56bd-8b79-c17014b2ac18",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "delete_confirm",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "delete_confirm"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "46dcfcfb-8b0b-5a4c-91ca-135c244d276f",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "export",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "export"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "49f77d4a-883b-5c8f-93c3-fa5dc9d763f0",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "help",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "help"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "4c1fa26d-5090-52c5-833b-56abe4544cd5",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "chat",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "chat"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "da7f3a31-a676-5771-a88e-2377b9d33198",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "register_start",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "register_start"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "8adb94a4-1216-5bc2-9ae4-33708eda3227",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "login_start",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "login_start"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "718a4662-1bef-5d9b-873d-bd5b6af46106",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "cancel",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "cancel"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "88c79839-8476-5a1c-93a5-e1a8b9e86395",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "register_email",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "register_email"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "3dad626d-6852-5086-9321-c6411b532044",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "register_consent",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "register_consent"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "e3fc664e-ee96-5228-89bd-358c25461c0b",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "register_password",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "register_password"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "19dc6046-e947-5411-9f35-d7e88451135f",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "login_email",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "login_email"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "f90502e6-14b2-53c3-843c-8376092a04b8",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "login_password",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "login_password"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1000,
+        600
+      ],
+      "id": "13fb43e1-ce6d-5858-83d4-883635dbbcc3",
+      "name": "Choisir l'action connectée"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d56d3661-63d4-5198-b07b-3a35fe1ad79c",
+              "name": "output",
+              "value": "=Vous n'êtes pas connecté. Tapez « connexion » pour vous connecter, ou « inscription » pour créer un compte.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1280,
+        480
+      ],
+      "id": "5a579ac5-069a-543c-baaf-dd5cf0f275b6",
+      "name": "Répondre non connecté"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH up AS (\n  INSERT INTO auth_pending (chat_session_id, step) VALUES ($1::text, $2::text)\n  ON CONFLICT (chat_session_id) DO UPDATE SET step = EXCLUDED.step, email = NULL, created_at = now()\n  RETURNING 1\n)\nSELECT 'done' AS status FROM up;",
+        "options": {
+          "queryReplacement": "={{ [ $('Analyser le message').first().json.sessionId, 'register_email' ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1280,
+        1400
+      ],
+      "id": "61b59199-cc9f-5c58-9e52-b67ce91aec49",
+      "name": "Démarrer l'inscription",
+      "credentials": {
+        "postgres": {
+          "id": "NVYHYZPCSYpCPKph",
+          "name": "postgres (à configurer)"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "59c934ed-a072-5ef6-a7cc-7863fd65a268",
+              "name": "output",
+              "value": "=Créons votre compte. Quelle adresse email voulez-vous utiliser ? (« annuler » pour arrêter)",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1520,
+        1400
+      ],
+      "id": "35a1f178-1850-5042-a832-17d211a828c5",
+      "name": "Répondre démarrer l'inscription"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH up AS (\n  INSERT INTO auth_pending (chat_session_id, step) VALUES ($1::text, $2::text)\n  ON CONFLICT (chat_session_id) DO UPDATE SET step = EXCLUDED.step, email = NULL, created_at = now()\n  RETURNING 1\n)\nSELECT 'done' AS status FROM up;",
+        "options": {
+          "queryReplacement": "={{ [ $('Analyser le message').first().json.sessionId, 'login_email' ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1280,
+        1520
+      ],
+      "id": "f0be94e9-a74e-59f1-9a07-4a28a1fffa65",
+      "name": "Démarrer la connexion",
+      "credentials": {
+        "postgres": {
+          "id": "NVYHYZPCSYpCPKph",
+          "name": "postgres (à configurer)"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4554aa53-7395-5776-b34d-34a5a6fa6848",
+              "name": "output",
+              "value": "=Quelle est votre adresse email ?",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1520,
+        1520
+      ],
+      "id": "e0392024-e99f-51a5-b4eb-6a4af17aeceb",
+      "name": "Répondre démarrer la connexion"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH d AS (DELETE FROM auth_pending WHERE chat_session_id = $1::text RETURNING 1)\nSELECT 'done' AS status;",
+        "options": {
+          "queryReplacement": "={{ [ $('Analyser le message').first().json.sessionId ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1280,
+        1640
+      ],
+      "id": "df1e0a52-0fbf-503a-9abf-45d54f20d759",
+      "name": "Annuler l'étape",
+      "credentials": {
+        "postgres": {
+          "id": "NVYHYZPCSYpCPKph",
+          "name": "postgres (à configurer)"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "daa06e3f-d63f-59de-b579-57b3088f3d91",
+              "name": "output",
+              "value": "=C'est annulé. Tapez « inscription » ou « connexion » quand vous voulez.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1520,
+        1640
+      ],
+      "id": "5a2dd3b6-aab1-52df-944e-7eaeeebbd75f",
+      "name": "Répondre annulation"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH upd AS (\n  UPDATE auth_pending SET step = $3::text, email = lower(btrim($2::text)), created_at = now()\n  WHERE chat_session_id = $1::text\n    AND length(btrim($2::text)) <= 254\n    AND lower(btrim($2::text)) ~ '^[a-z0-9._%+-]{1,64}@[a-z0-9-]+(\\.[a-z0-9-]+)*\\.[a-z]{2,}$'\n  RETURNING 1\n)\nSELECT EXISTS (SELECT 1 FROM upd) AS ok;",
+        "options": {
+          "queryReplacement": "={{ [ $('Analyser le message').first().json.sessionId, $('Analyser le message').first().json.raw, 'register_consent' ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1280,
+        1760
+      ],
+      "id": "fc84aae6-2ace-5879-a521-d291164f205b",
+      "name": "Enregistrer l'email (inscription)",
+      "credentials": {
+        "postgres": {
+          "id": "NVYHYZPCSYpCPKph",
+          "name": "postgres (à configurer)"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "416751a7-538f-5ba4-bde5-5c584e3a7bed",
+              "name": "output",
+              "value": "={{ $json.ok ? \"Avant de continuer : Persona conservera votre email, votre mot de passe (haché, illisible), vos centres d'intérêt et vos horaires d'envoi, uniquement pour vous envoyer votre newsletter, jusqu'à la suppression de votre compte. Vous pourrez exporter ou supprimer vos données à tout moment.\\nTapez « j'accepte » pour continuer, ou « annuler ».\" : \"Cette adresse email n'est pas valide. Réessayez, ou tapez « annuler ».\" }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1520,
+        1760
+      ],
+      "id": "1ef47aa4-7f01-5f02-800f-50ea56a78bef",
+      "name": "Répondre email (inscription)"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH upd AS (\n  UPDATE auth_pending SET step = 'register_password', created_at = now()\n  WHERE chat_session_id = $1::text AND $2::text IN ('j''accepte', 'jaccepte', 'accepte', 'oui', 'oui j''accepte')\n  RETURNING 1\n)\nSELECT EXISTS (SELECT 1 FROM upd) AS ok;",
+        "options": {
+          "queryReplacement": "={{ [ $('Analyser le message').first().json.sessionId, $('Analyser le message').first().json.exact ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1280,
+        1880
+      ],
+      "id": "866987ae-9f13-5296-9fde-543563136cb6",
+      "name": "Enregistrer le consentement",
+      "credentials": {
+        "postgres": {
+          "id": "NVYHYZPCSYpCPKph",
+          "name": "postgres (à configurer)"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ecbeab62-5e22-51f0-af1d-4dba8621506d",
+              "name": "output",
+              "value": "={{ $json.ok ? \"Merci. Choisissez un mot de passe : au moins 12 caractères, avec au moins 3 types parmi : minuscules, majuscules, chiffres, symboles.\" : \"Pour créer un compte, tapez « j'accepte », ou « annuler ».\" }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1520,
+        1880
+      ],
+      "id": "f4303836-de5e-5ecb-8da1-c10efff09311",
+      "name": "Répondre consentement"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $('Analyser le message').first().json.raw;\nconst email = $('Choisir l\\'étape').first().json.pending_email;\nconst bytes = new TextEncoder().encode(raw).length;\nconst classes = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^A-Za-z0-9]/].filter((r) => r.test(raw)).length;\nlet error = '';\nif (bytes > 72) error = 'Mot de passe trop long (72 octets maximum).';\nelse if (raw.length < 12) error = 'Mot de passe trop court (12 caractères minimum).';\nelse if (classes < 3) error = 'Mot de passe trop faible : mélangez au moins 3 types parmi minuscules, majuscules, chiffres et symboles.';\nelse if (email && email.split('@')[0].length >= 4 && raw.toLowerCase().includes(email.split('@')[0])) error = 'Le mot de passe ne doit pas contenir votre identifiant email.';\nreturn [{ json: { error } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        2000
+      ],
+      "id": "49669e08-e81f-5ed0-9285-b34d45f1f51a",
+      "name": "Vérifier le mot de passe"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH ok AS (SELECT 1 WHERE $3::text = ''),\nnew_user AS (\n  INSERT INTO users (email, password_hash, consent_given_at, consent_version)\n  SELECT $1::text, crypt($2::text, gen_salt('bf', 12)), now(), 'v1' FROM ok\n  ON CONFLICT (email) DO NOTHING\n  RETURNING id\n), prefs AS (\n  INSERT INTO preferences (user_id) SELECT id FROM new_user\n), log_ok AS (\n  INSERT INTO audit_log (event, user_id, details) SELECT 'register_ok', id, '{}'::jsonb FROM new_user\n), log_dup AS (\n  INSERT INTO audit_log (event, details)\n  SELECT 'register_duplicate', '{}'::jsonb WHERE EXISTS (SELECT 1 FROM ok) AND NOT EXISTS (SELECT 1 FROM new_user)\n), done AS (\n  DELETE FROM auth_pending WHERE chat_session_id = $4::text AND EXISTS (SELECT 1 FROM ok)\n)\nSELECT 'done' AS status;",
+        "options": {
+          "queryReplacement": "={{ [ $('Choisir l\\'étape').first().json.pending_email, $('Analyser le message').first().json.raw, $json.error, $('Analyser le message').first().json.sessionId ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1520,
+        2000
+      ],
+      "id": "5ba11405-8a5c-5491-9b90-06d844b4e137",
+      "name": "Créer le compte (guidé)",
+      "credentials": {
+        "postgres": {
+          "id": "NVYHYZPCSYpCPKph",
+          "name": "postgres (à configurer)"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "874107a4-2be6-5811-a960-ca87dfd587d6",
+              "name": "output",
+              "value": "={{ $('Vérifier le mot de passe').first().json.error ? $('Vérifier le mot de passe').first().json.error + ' Choisissez un autre mot de passe, ou tapez « annuler ».' : \"C'est fait ✅ Tapez « connexion » pour vous connecter.\" }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1760,
+        2000
+      ],
+      "id": "ae838ecd-88ba-5ef4-9d9c-e534298f0725",
+      "name": "Répondre création du compte"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH upd AS (\n  UPDATE auth_pending SET step = $3::text, email = lower(btrim($2::text)), created_at = now()\n  WHERE chat_session_id = $1::text\n    AND length(btrim($2::text)) <= 254\n    AND lower(btrim($2::text)) ~ '^[a-z0-9._%+-]{1,64}@[a-z0-9-]+(\\.[a-z0-9-]+)*\\.[a-z]{2,}$'\n  RETURNING 1\n)\nSELECT EXISTS (SELECT 1 FROM upd) AS ok;",
+        "options": {
+          "queryReplacement": "={{ [ $('Analyser le message').first().json.sessionId, $('Analyser le message').first().json.raw, 'login_password' ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1280,
+        2120
+      ],
+      "id": "b784c121-6d21-59ff-a114-2c4fbbae588b",
+      "name": "Enregistrer l'email (connexion)",
+      "credentials": {
+        "postgres": {
+          "id": "NVYHYZPCSYpCPKph",
+          "name": "postgres (à configurer)"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a52fa145-d821-5987-9de4-e62e76ad406f",
+              "name": "output",
+              "value": "={{ $json.ok ? 'Votre mot de passe ?' : \"Cette adresse email n'est pas valide. Réessayez, ou tapez « annuler ».\" }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1520,
+        2120
+      ],
+      "id": "99c49801-ecfa-584a-bcfc-bf11cf0ed673",
+      "name": "Répondre email (connexion)"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH target AS (\n  SELECT id, password_hash, locked_until, failed_login_attempts\n  FROM users WHERE email = $1::text\n), state AS (\n  SELECT id, failed_login_attempts AS fails,\n         (locked_until IS NOT NULL AND locked_until > now()) AS locked,\n         (password_hash = crypt($2::text, password_hash)) AS ok\n  FROM target\n), dummy AS (\n  -- inconnu : on calcule quand même un hash pour que le temps de réponse ne révèle rien\n  SELECT crypt($2::text, gen_salt('bf', 12)) AS h WHERE NOT EXISTS (SELECT 1 FROM target)\n), bump AS (\n  UPDATE users u SET\n    failed_login_attempts = CASE WHEN s.locked THEN u.failed_login_attempts\n                                 WHEN s.ok THEN 0\n                                 ELSE u.failed_login_attempts + 1 END,\n    locked_until = CASE WHEN s.locked THEN u.locked_until\n                        WHEN s.ok THEN NULL\n                        WHEN u.failed_login_attempts + 1 >= 5 THEN now() + INTERVAL '15 minutes'\n                        ELSE u.locked_until END\n  FROM state s WHERE u.id = s.id\n  RETURNING u.id\n), sess AS (\n  INSERT INTO sessions (chat_session_id, user_id)\n  SELECT $3::text, s.id FROM state s WHERE s.ok AND NOT s.locked\n  ON CONFLICT (chat_session_id) DO UPDATE\n    SET user_id = EXCLUDED.user_id, created_at = now(), expires_at = now() + INTERVAL '2 hours'\n  RETURNING chat_session_id\n), clear_pending AS (\n  DELETE FROM auth_pending WHERE chat_session_id = $3::text AND EXISTS (SELECT 1 FROM sess)\n), log_known AS (\n  INSERT INTO audit_log (event, user_id, details)\n  SELECT CASE WHEN s.locked THEN 'login_blocked'\n              WHEN s.ok THEN 'login_ok'\n              WHEN s.fails + 1 >= 5 THEN 'account_locked'\n              ELSE 'login_failed' END,\n         s.id, '{}'::jsonb\n  FROM state s\n), log_unknown AS (\n  INSERT INTO audit_log (event, details)\n  SELECT 'login_failed_unknown', '{}'::jsonb WHERE NOT EXISTS (SELECT 1 FROM target)\n)\nSELECT CASE WHEN EXISTS (SELECT 1 FROM state WHERE ok AND NOT locked) THEN 'ok' ELSE 'denied' END AS status,\n       (SELECT count(*) FROM dummy) AS _pad;",
+        "options": {
+          "queryReplacement": "={{ [ $('Choisir l\\'étape').first().json.pending_email, $('Analyser le message').first().json.raw, $('Analyser le message').first().json.sessionId ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1280,
+        2240
+      ],
+      "id": "76ab6793-22da-5fe8-8d53-781d4b8762ad",
+      "name": "Vérifier les identifiants (guidé)",
+      "credentials": {
+        "postgres": {
+          "id": "NVYHYZPCSYpCPKph",
+          "name": "postgres (à configurer)"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d93b7ad8-563e-5508-b51b-c2d111de6c43",
+              "name": "output",
+              "value": "={{ $json.status === 'ok' ? \"Connexion réussie ✅ Dites-moi ce qui vous intéresse, quand recevoir la newsletter, ou tapez « aide » pour tout ce que je sais faire.\" : \"Identifiants invalides, ou compte temporairement verrouillé (15 minutes après 5 échecs). Retapez votre mot de passe, ou tapez « annuler ».\" }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1520,
+        2240
+      ],
+      "id": "52ed1587-a49d-5980-96f6-e28050c16221",
+      "name": "Répondre connexion (guidée)"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH d AS (DELETE FROM sessions WHERE chat_session_id = $1::text RETURNING user_id),\nl AS (INSERT INTO audit_log (event, user_id, details) SELECT 'logout', user_id, '{}'::jsonb FROM d)\nSELECT 'done' AS status;",
+        "options": {
+          "queryReplacement": "={{ [ $('Analyser le message').first().json.sessionId ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1280,
+        600
+      ],
+      "id": "1fb4bf37-5f3f-58f8-811a-cf4c142a1d16",
+      "name": "Fermer la session",
+      "credentials": {
+        "postgres": {
+          "id": "NVYHYZPCSYpCPKph",
+          "name": "postgres (à configurer)"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e4ebc2c2-cb49-55ce-84ff-093c8b74da22",
+              "name": "output",
+              "value": "=Vous êtes déconnecté. À bientôt !",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1520,
+        600
+      ],
+      "id": "8a6f8ecd-1650-5484-9163-92999b313ffc",
+      "name": "Répondre déconnexion"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b997f2f9-f198-5dcc-82e5-58dff011cc08",
+              "name": "output",
+              "value": "=Cette action supprime définitivement votre compte, vos préférences et vos retours. Pour confirmer, tapez exactement : confirmer suppression",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1280,
+        720
+      ],
+      "id": "bbaba133-4eed-5937-86db-b56a803e9652",
+      "name": "Répondre demande de suppression"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH del AS (DELETE FROM users WHERE id = $1::uuid RETURNING id),\nl AS (INSERT INTO audit_log (event, user_id, details) SELECT 'account_deleted', id, '{}'::jsonb FROM del)\nSELECT count(*)::int AS deleted FROM del;",
+        "options": {
+          "queryReplacement": "={{ [ $('Vérifier la session').first().json.user_id ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1280,
+        840
+      ],
+      "id": "f60577c2-0693-5e64-b96a-65ec6b2d0eb4",
+      "name": "Supprimer le compte",
+      "credentials": {
+        "postgres": {
+          "id": "NVYHYZPCSYpCPKph",
+          "name": "postgres (à configurer)"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5ab45942-0b33-58c3-8d00-ec42a646aa6a",
+              "name": "output",
+              "value": "={{ $json.deleted > 0 ? 'Votre compte et vos données ont été supprimés. Au revoir !' : 'Aucun compte à supprimer.' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1520,
+        840
+      ],
+      "id": "2b864706-fe6c-5cba-8f2a-863daa277902",
+      "name": "Répondre suppression"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT jsonb_pretty(jsonb_build_object(\n  'email', u.email,\n  'compte_cree_le', u.created_at,\n  'consentement', jsonb_build_object('date', u.consent_given_at, 'version', u.consent_version),\n  'preferences', to_jsonb(p) - 'user_id',\n  'newsletters_recues', (SELECT count(*) FROM sent_newsletters s WHERE s.user_id = u.id),\n  'feedbacks', COALESCE((SELECT jsonb_agg(jsonb_build_object('date', f.created_at, 'message', f.message))\n                         FROM feedback f WHERE f.user_id = u.id), '[]'::jsonb)\n)) AS data\nFROM users u JOIN preferences p ON p.user_id = u.id\nWHERE u.id = $1::uuid;",
+        "options": {
+          "queryReplacement": "={{ [ $('Vérifier la session').first().json.user_id ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1280,
+        960
+      ],
+      "id": "02c8db70-c2ef-5ab1-90ca-72077594aacf",
+      "name": "Exporter les données",
+      "credentials": {
+        "postgres": {
+          "id": "NVYHYZPCSYpCPKph",
+          "name": "postgres (à configurer)"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5ed51c11-c063-5cbd-8648-bb20f0b7d8f5",
+              "name": "output",
+              "value": "={{ 'Voici les données que Persona conserve sur vous :\\n```\\n' + $json.data + '\\n```' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1520,
+        960
+      ],
+      "id": "2f0a6cde-1629-5989-bce2-c36ae376a147",
+      "name": "Répondre export"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "98256344-a706-57a6-8566-fe3c3a8b264d",
+              "name": "output",
+              "value": "=Je peux modifier vos centres d'intérêt, les jours/heure/fuseau d'envoi, votre email, le ton et le format, le nombre d'articles, mettre la newsletter en pause, exclure une source ou enregistrer un feedback. Commandes : « mes données » (export), « supprimer mon compte », « deconnexion ».",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1280,
+        1080
+      ],
+      "id": "7ea5df9f-9465-5de1-9998-49ad009af0e6",
+      "name": "Répondre aide"
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $('Analyser le message').first().json.message;\n// Texte comparé sans accents, sans casse, sans caractères invisibles.\nconst t = text.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');\n\nconst PATTERNS = [\n  ['ignorer-consignes', /(ignore|oublie|desobeis|contourne|disregard|forget|override).{0,40}(instruction|consigne|regle|rule|prompt|directive|guideline)/],\n  ['reveler-prompt', /(system|developer|systeme) ?(prompt|message|instruction)|prompt (systeme|initial)|(reveal|show|print|montre|affiche|donne|repete).{0,30}(prompt|instructions)/],\n  ['changer-de-role', /(you are now|tu es maintenant|desormais tu|from now on|a partir de maintenant tu|act as|joue le role|pretend (to be|you))/],\n  ['jailbreak', /(jailbreak|\\bdan\\b mode|developer mode|mode developpeur|do anything now)/],\n  ['elevation-privileges', /(devenir|passe(r)?|me donner|donne.moi|give me|make me|set my).{0,30}(admin|administrateur|root|superuser)|\\bsudo\\b|role ?= ?.?admin/],\n  ['autres-utilisateurs', /(autres?|tous les|toutes les|all|every|other|someone else.?s|d.un autre) (utilisateurs?|users?|comptes?|accounts?|clients?)/],\n  ['champs-internes', /user_id|password_hash|unsubscribe_token|chat_session_id|audit_log|information_schema|pg_catalog|pg_shadow/],\n  ['injection-sql', /(drop|truncate|alter) +(table|database|schema)|union +select|delete +from|insert +into|'\\s*or\\s*'?\\d'?\\s*=\\s*'?\\d|;\\s*--/],\n  ['delimiteurs-llm', /<\\|[a-z_]+\\|>|\\[\\/?inst\\]|<<\\/?sys>>|^\\s*(system|assistant)\\s*:/m],\n];\n\nconst matches = PATTERNS.filter(([, re]) => re.test(t)).map(([label]) => label);\nreturn [{ json: { blocked: matches.length > 0, matches, length: text.length } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        1200
+      ],
+      "id": "e0c26931-a731-5aba-82f0-c59744f5aa63",
+      "name": "Filtrer l'injection"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH l AS (\n  INSERT INTO audit_log (event, user_id, details)\n  SELECT 'injection_suspected', $1::uuid,\n         jsonb_build_object('patterns', $2::jsonb, 'length', $3::int)\n  WHERE jsonb_array_length($2::jsonb) > 0\n)\nSELECT 'done' AS status;",
+        "options": {
+          "queryReplacement": "={{ [ $('Vérifier la session').first().json.user_id, JSON.stringify($('Filtrer l\\'injection').first().json.matches), $('Filtrer l\\'injection').first().json.length ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1520,
+        1200
+      ],
+      "id": "9674333f-87ac-5d90-84a5-02073d8ed13a",
+      "name": "Journaliser la tentative",
+      "credentials": {
+        "postgres": {
+          "id": "NVYHYZPCSYpCPKph",
+          "name": "postgres (à configurer)"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ce31833d-c1b1-54c7-b872-9ac82260a7e2",
+              "leftValue": "={{ $('Filtrer l\\'injection').first().json.blocked ? 'non' : 'oui' }}",
+              "rightValue": "oui",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1760,
+        1200
+      ],
+      "id": "0053cac3-d3a0-54eb-a02d-5c938e8d118e",
+      "name": "Message autorisé ?"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "PersonaChatAgnt1",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "user_id": "={{ $('Vérifier la session').first().json.user_id }}",
+            "session_id": "={{ $('Analyser le message').first().json.sessionId }}",
+            "message": "={{ $('Analyser le message').first().json.message }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "session_id",
+              "displayName": "session_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        2000,
+        1160
+      ],
+      "id": "606801e1-af0a-5576-9b61-66de6317875e",
+      "name": "Appeler l'agent",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "17c8359b-25ab-510d-9217-aa6cc646f0e1",
+              "name": "output",
+              "value": "=Je ne peux traiter que les demandes liées à votre newsletter et à votre propre compte. Reformulez votre demande.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        2000,
+        1300
+      ],
+      "id": "6d751c0a-0a08-53f6-993f-d4aa960cd511",
+      "name": "Répondre message bloqué"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nlet text = typeof item.output === 'string' ? item.output : '';\nif (!text) text = \"Désolé, je n'ai pas pu traiter votre demande. Réessayez dans un instant.\";\n// Dernier filet de sécurité : ni hash de mot de passe, ni identifiant interne dans la réponse.\ntext = text\n  .replace(/\\$2[aby]\\$\\d{2}\\$[./A-Za-z0-9]{53}/g, '[masqué]')\n  .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '[masqué]');\nreturn [{ json: { output: text.slice(0, 3000) } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2280,
+        600
+      ],
+      "id": "1e629666-2f71-5d6a-91bd-baa698be1488",
+      "name": "Formater la réponse"
+    }
+  ],
+  "connections": {
+    "Recevoir le message": {
+      "main": [
+        [
+          {
+            "node": "Analyser le message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyser le message": {
+      "main": [
+        [
+          {
+            "node": "Choisir le parcours",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Choisir le parcours": {
+      "main": [
+        [
+          {
+            "node": "Répondre erreur de saisie",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Créer le compte",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Vérifier les identifiants",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Vérifier la session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Répondre erreur de saisie": {
+      "main": [
+        [
+          {
+            "node": "Formater la réponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Créer le compte": {
+      "main": [
+        [
+          {
+            "node": "Répondre inscription",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Répondre inscription": {
+      "main": [
+        [
+          {
+            "node": "Formater la réponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vérifier les identifiants": {
+      "main": [
+        [
+          {
+            "node": "Répondre connexion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Répondre connexion": {
+      "main": [
+        [
+          {
+            "node": "Formater la réponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vérifier la session": {
+      "main": [
+        [
+          {
+            "node": "Choisir l'étape",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Choisir l'étape": {
+      "main": [
+        [
+          {
+            "node": "Choisir l'action connectée",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Choisir l'action connectée": {
+      "main": [
+        [
+          {
+            "node": "Répondre non connecté",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fermer la session",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Répondre demande de suppression",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supprimer le compte",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Exporter les données",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Répondre aide",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Filtrer l'injection",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Démarrer l'inscription",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Démarrer la connexion",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Annuler l'étape",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enregistrer l'email (inscription)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enregistrer le consentement",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Vérifier le mot de passe",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enregistrer l'email (connexion)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Vérifier les identifiants (guidé)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Répondre non connecté": {
+      "main": [
+        [
+          {
+            "node": "Formater la réponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Démarrer l'inscription": {
+      "main": [
+        [
+          {
+            "node": "Répondre démarrer l'inscription",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Répondre démarrer l'inscription": {
+      "main": [
+        [
+          {
+            "node": "Formater la réponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Démarrer la connexion": {
+      "main": [
+        [
+          {
+            "node": "Répondre démarrer la connexion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Répondre démarrer la connexion": {
+      "main": [
+        [
+          {
+            "node": "Formater la réponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Annuler l'étape": {
+      "main": [
+        [
+          {
+            "node": "Répondre annulation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Répondre annulation": {
+      "main": [
+        [
+          {
+            "node": "Formater la réponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enregistrer l'email (inscription)": {
+      "main": [
+        [
+          {
+            "node": "Répondre email (inscription)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Répondre email (inscription)": {
+      "main": [
+        [
+          {
+            "node": "Formater la réponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enregistrer le consentement": {
+      "main": [
+        [
+          {
+            "node": "Répondre consentement",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Répondre consentement": {
+      "main": [
+        [
+          {
+            "node": "Formater la réponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vérifier le mot de passe": {
+      "main": [
+        [
+          {
+            "node": "Créer le compte (guidé)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Créer le compte (guidé)": {
+      "main": [
+        [
+          {
+            "node": "Répondre création du compte",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Répondre création du compte": {
+      "main": [
+        [
+          {
+            "node": "Formater la réponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enregistrer l'email (connexion)": {
+      "main": [
+        [
+          {
+            "node": "Répondre email (connexion)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Répondre email (connexion)": {
+      "main": [
+        [
+          {
+            "node": "Formater la réponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vérifier les identifiants (guidé)": {
+      "main": [
+        [
+          {
+            "node": "Répondre connexion (guidée)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Répondre connexion (guidée)": {
+      "main": [
+        [
+          {
+            "node": "Formater la réponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fermer la session": {
+      "main": [
+        [
+          {
+            "node": "Répondre déconnexion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Répondre déconnexion": {
+      "main": [
+        [
+          {
+            "node": "Formater la réponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Répondre demande de suppression": {
+      "main": [
+        [
+          {
+            "node": "Formater la réponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supprimer le compte": {
+      "main": [
+        [
+          {
+            "node": "Répondre suppression",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Répondre suppression": {
+      "main": [
+        [
+          {
+            "node": "Formater la réponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exporter les données": {
+      "main": [
+        [
+          {
+            "node": "Répondre export",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Répondre export": {
+      "main": [
+        [
+          {
+            "node": "Formater la réponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Répondre aide": {
+      "main": [
+        [
+          {
+            "node": "Formater la réponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrer l'injection": {
+      "main": [
+        [
+          {
+            "node": "Journaliser la tentative",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Journaliser la tentative": {
+      "main": [
+        [
+          {
+            "node": "Message autorisé ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message autorisé ?": {
+      "main": [
+        [
+          {
+            "node": "Appeler l'agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Répondre message bloqué",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Appeler l'agent": {
+      "main": [
+        [
+          {
+            "node": "Formater la réponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Répondre message bloqué": {
+      "main": [
+        [
+          {
+            "node": "Formater la réponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "none",
+    "saveManualExecutions": false,
+    "saveExecutionProgress": false
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

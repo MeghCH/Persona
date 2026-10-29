@@ -110,10 +110,62 @@ Puis ré-associer les credentials dans les nœuds concernés.
 | `[B] News - Envoi`           | `workflows/b_news_envoi.json`            | toutes les heures à h00  | `Postgres Persona`, `SMTP Persona`          |
 | `[B] News - Désinscription`  | `workflows/b_news_desinscription.json`   | webhook `/unsubscribe`   | `Postgres Persona`                          |
 | `[Commun] Maintenance RGPD`  | `workflows/commun_maintenance_rgpd.json` | tous les jours à 3 h     | `Postgres Persona`                          |
+| `[A] Chat - Entrée`          | `workflows/a_chat_entree.json`           | Chat Trigger (public)    | `Postgres Persona`                          |
+| `[A] Chat - Agent`           | `workflows/a_chat_agent.json`            | appelé par `Chat - Entrée` | `Postgres Persona`, `LLM Persona` (Gemini) |
 
 Après un import, les credentials apparaissent sous le nom `<type> (à configurer)`
 (renommés par `scripts/sanitize.py`) : les ré-associer dans chaque nœud, puis
 activer les workflows.
+
+Les workflows A ont besoin de la migration **proposée** (à valider à deux avant de
+l'intégrer à `02-schema.sql`) : ton, format, sources exclues, table `feedback`,
+fuseaux et emails valides en base.
+
+```bash
+docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d persona' < db/proposals/03-style-feedback-timezone.sql
+```
+
+### `[A] Chat - Entrée`
+
+Page de démo avec la bulle de chat en bas à droite : **http://localhost:8090**
+(service `web` du `docker-compose.yml`, fichier `web/index.html`, widget `@n8n/chat`).
+Le Chat Trigger n'accepte que les origines `localhost:5678` et `localhost:8090`.
+Sur cette page, le mot de passe est saisi dans un champ masqué et s'affiche `••••••••`
+une fois envoyé (il est ensuite haché en bcrypt côté serveur).
+
+Chat hébergé par n8n (sans mise en forme) : `http://localhost:5678/webhook/9d5a3c0e-6c1e-4b6e-9a53-2f0c7a8f4a11/chat`
+
+| Message                                         | Effet                                              |
+| ----------------------------------------------- | -------------------------------------------------- |
+| `inscription`                                   | inscription guidée : email, consentement, mot de passe |
+| `connexion`                                     | connexion guidée : email, puis mot de passe (2 h d'inactivité, 8 h maximum) |
+| `annuler`                                       | abandonne l'inscription ou la connexion en cours   |
+| `inscription EMAIL MOT_DE_PASSE j'accepte`      | inscription en une ligne                           |
+| `connexion EMAIL MOT_DE_PASSE`                  | connexion en une ligne                             |
+| `deconnexion`                                   | ferme la session                                   |
+| `mes données`                                   | export JSON des données conservées                 |
+| `supprimer mon compte` puis `confirmer suppression` | supprime le compte et tout ce qui s'y rattache |
+| `aide`                                          | liste de ce que l'agent sait faire                 |
+| tout autre message (connecté)                   | filtré, puis transmis à `[A] Chat - Agent`         |
+
+L'authentification ne passe jamais par l'IA : ces commandes sont traitées en SQL
+avant l'agent. Pendant un parcours guidé, l'étape en cours est retenue 10 minutes
+dans `auth_pending` (jamais le mot de passe), et le message qui contient le mot
+de passe ne va ni à l'agent ni au filtre d'injection. Mot de passe : bcrypt (coût 12), 12 caractères minimum ; 5 échecs
+verrouillent le compte 15 minutes. Ce workflow n'enregistre pas ses exécutions
+(les messages contiennent des mots de passe) : pour déboguer, réactiver
+temporairement la sauvegarde des exécutions dans les _Settings_ du workflow.
+
+### `[A] Chat - Agent`
+
+Agent Gemini avec 8 outils SQL : `lire_preferences`, `modifier_interets`,
+`modifier_horaire`, `modifier_email`, `activer_newsletter`, `modifier_style`,
+`exclure_source`, `donner_feedback`. Le `user_id` est fourni par la session,
+jamais par le modèle : un modèle manipulé ne peut agir que sur le compte connecté.
+Les centres d'intérêt sont limités aux thèmes de la collecte (`sport`,
+`technologie`…) et les sources exclues aux 4 sources, sous leur nom exact.
+
+Détail des protections et résultats des tests : [doc/audit-securite.md](doc/audit-securite.md).
 
 ### `[B] News - Collecte`
 
