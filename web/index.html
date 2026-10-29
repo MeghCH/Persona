@@ -116,7 +116,7 @@
       .cmd span { text-align: left; }
     }
 
-    /* Widget de chat n8n */
+    /* bulle de chat n8n */
     :root {
       --chat--font-family: Inter, system-ui, sans-serif;
       --chat--color--primary: var(--accent);
@@ -266,8 +266,7 @@
       },
     });
 
-    // Mots de passe masqués : quand le bot demande un mot de passe, la zone de saisie devient un vrai
-    // champ mot de passe, et le message envoyé s'affiche en points. (Côté serveur, il est haché en bcrypt.)
+    // quand le bot demande un mot de passe, on le cache pendant la saisie et dans la conversation
     const PW_PROMPT = /choisissez un (autre )?mot de passe|votre mot de passe \?|retapez votre mot de passe/i;
     const MASK = '••••••••';
     let maskNextUserMessage = false;
@@ -278,7 +277,7 @@
     }
 
     function setTextarea(ta, value) {
-      // passe par le setter natif pour que le widget (Vue) voie la valeur
+      // sinon le widget ne voit pas le changement
       Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, value);
       ta.dispatchEvent(new Event('input', { bubbles: true }));
     }
@@ -310,11 +309,10 @@
       } else if (!wanted && pw) {
         pw.remove();
         ta.classList.remove('pw-hidden');
-        ta.focus();  // sinon le focus est perdu et la saisie suivante part dans le vide
+        ta.focus();
       }
     }
 
-    // clic sur le bouton d'envoi pendant une saisie de mot de passe
     document.addEventListener('click', (e) => {
       if (e.target.closest('.chat-input-send-button') && document.getElementById('pw-input')) {
         maskNextUserMessage = true;
@@ -336,7 +334,7 @@
       updatePasswordField();
     }).observe(document.body, { childList: true, subtree: true });
 
-    // Le bouton de la page ouvre la même bulle que celle en bas à droite
+    // le bouton de la page ouvre la bulle
     document.getElementById('open-chat').addEventListener('click', () => {
       const toggle = document.querySelector('.chat-window-toggle');
       const win = document.querySelector('.chat-window');

@@ -1,161 +1,154 @@
-# Persona - Audit de sécurité
+# Audit de sécurité - Persona
 
-Auteur : personne A (conversation et sécurité) - 28/10/2026
-Périmètre : workflows `[A] Chat - Entrée`, `[A] Chat - Agent`, et attaques de phase 2 contre
-`[B] News - Collecte`, `[B] News - Envoi`, `[B] News - Désinscription`.
+Partie A (chatbot et sécurité), 29/10/2026.
 
-## 1. Méthode
+On a vérifié la sécurité de nos deux workflows (`[A] Chat - Entrée` et `[A] Chat - Agent`),
+puis on a attaqué les workflows de B, comme prévu en phase 2.
 
-- Environnement de test **isolé** : une seconde pile Docker (`persona-test`, volumes séparés), n8n 2.44.7
-  et PostgreSQL 16, sans toucher aux données réelles.
-- **Faux Gemini** : un petit serveur qui imite l'API Gemini et renvoie des appels d'outils choisis,
-  y compris des appels malveillants (un « modèle manipulé »). On teste ainsi ce que le système
-  laisse faire au LLM, indépendamment de la bonne volonté du modèle.
-- **Faux SMTP** : capture les emails envoyés par `[B] News - Envoi` pour inspecter leur HTML.
-- Chaque test envoie une vraie requête au Chat Trigger, puis **vérifie l'état de la base** (et pas
-  seulement la réponse du chatbot).
-- Vérification complémentaire avec le **vrai Gemini** sur l'instance de développement : lecture et
-  modification des préférences, ton et format, feedback, refus d'accès à un autre compte, export,
-  suppression, filtre d'injection.
+## Comment on a testé
 
-Résultat : **66/66 tests réussis** sur la version finale du chatbot (environnement isolé, 29/10/2026),
-dont les 14 tests de l'inscription et de la connexion guidées ; **4 vulnérabilités** trouvées dans les
-workflows de B. Le parcours guidé a aussi été testé sur l'instance de développement (23 tests, sans
-appel à Gemini) et à la main dans la bulle de chat (section 3 bis).
+On a monté une deuxième installation de Persona, à part, pour ne pas toucher aux vraies données.
+On y a remplacé Gemini par un faux serveur qui répond ce qu'on veut, y compris des réponses
+malveillantes : c'est comme si quelqu'un avait réussi à manipuler l'IA. On voit donc ce que le
+système laisse passer même dans le pire cas. Un faux serveur mail récupérait aussi les newsletters
+envoyées par B pour qu'on puisse lire leur HTML.
 
-## 2. Architecture de sécurité du chatbot
+Chaque test envoie un vrai message au chatbot puis regarde ce qui a changé dans la base.
 
-```
-Message ─► Analyser le message ─► inscription / connexion ─► SQL paramétré (bcrypt, verrouillage)
-  (Chat     (sessionId ≥ 32 car.,                         
-  Trigger)   1000 car. max,         sinon ─► Vérifier la session ─► non connecté : refus
-             invisibles retirés)                  │
-                                                  ├─► commandes fixes : déconnexion, mes données,
-                                                  │   supprimer mon compte (sans LLM)
-                                                  └─► Filtrer l'injection ─► Agent IA ─► outils SQL
-                                                                                         liés au user_id
-                                                                                         de la session
-```
+Résultat : **66 tests sur 66 passent**. On a aussi refait l'inscription et la connexion sur notre
+instance (23 tests) et à la main dans la bulle de chat. Côté B, on a trouvé **4 failles**.
 
-Principes :
+## Comment le chatbot se protège
 
-1. **Le LLM ne fait jamais l'authentification.** Inscription, connexion, déconnexion, export et
-   suppression sont des commandes déterministes, traitées avant l'agent. Les mots de passe
-   n'arrivent jamais au modèle.
-2. **Le LLM ne choisit jamais l'utilisateur.** Le `user_id` vient de la table `sessions`, côté
-   serveur, et est injecté dans chaque requête SQL des outils. Le modèle ne fournit que les valeurs
-   (intérêts, heure…). Même un modèle totalement manipulé ne peut agir que sur le compte connecté.
-3. **Défense en profondeur sur les valeurs** : requêtes paramétrées (`$1`, `$2`), validation en SQL
-   (listes autorisées, expressions régulières), contraintes `CHECK` en base.
-4. **Moindre privilège** : n8n utilise `persona_app` (pas de modification du schéma, `audit_log` en
-   ajout seul). Aucun outil ne touche à `role`, `password_hash` ou `unsubscribe_token`.
-5. **Traçabilité** : chaque connexion, échec, verrouillage, modification, tentative d'injection et
-   suppression est écrit dans `audit_log`, sans donnée personnelle en clair.
+Un message passe par ces étapes :
 
-## 3. Résultats des tests du chatbot (52/52)
+1. On le nettoie (caractères invisibles, 1000 caractères maximum) et on refuse les identifiants
+   de session trop courts, qu'on pourrait deviner.
+2. Si c'est une inscription ou une connexion, on la traite en SQL, sans l'IA.
+3. Sinon, on vérifie la session. Pas connecté : on s'arrête là.
+4. Les commandes `deconnexion`, `mes données` et `supprimer mon compte` sont aussi traitées sans l'IA.
+5. Le reste passe par un filtre anti-injection, puis va à l'agent.
 
-| Domaine | Attaques testées | Résultat |
-|---|---|---|
-| Entrées | `sessionId` devinable (`abc`), message de 1001 caractères, requête sans texte | Refusés |
-| Inscription | email invalide, mot de passe court ou faible, sans consentement, consentement ambigu | Refusés |
-| Inscription | réinscription d'un email existant | Même réponse (pas d'énumération), mot de passe d'origine inchangé |
-| Stockage | mot de passe en base | Haché bcrypt coût 12 ; consentement daté et versionné ; rôle `user` |
-| Connexion | injection SQL dans l'email et dans le mot de passe | Aucune session créée |
-| Connexion | email inconnu / mauvais mot de passe | Réponse identique, et hash calculé dans les deux cas (temps de réponse comparable) |
-| Force brute | 5 échecs puis le bon mot de passe | Compte verrouillé 15 min, connexion refusée, événements `account_locked` et `login_blocked` |
-| Sessions | session inconnue, après déconnexion, expirée (2 h d'inactivité), de plus de 8 h | Accès refusé |
-| Cloisonnement | le LLM passe le `user_id` d'un autre compte (lecture et écriture) | Ignoré : seul le compte connecté est lu ou modifié |
-| Cloisonnement | prendre l'email d'un autre compte ; mémoire de l'agent après changement de compte | Refusé ; mémoire séparée par session **et** utilisateur |
-| Élévation | le LLM ajoute `role=admin` à un outil | Rôle inchangé |
-| Injection SQL | `x'); DROP TABLE users;--` dans un paramètre d'outil | Table intacte, valeur ignorée |
-| Validation | fuseau `Mars/Olympus`, heure 25, jours 9 et 99, ton `admin`, email invalide | Refusés, rien n'est modifié |
-| Fuite | le modèle « recrache » un hash bcrypt et un UUID | Masqués par le filtre de sortie |
-| Injection de prompt | « ignore tes instructions », révéler le prompt, données des autres utilisateurs, passer admin, `DROP TABLE`, `ig·nore (caractère invisible)` avec caractère invisible, mode DAN, `password_hash`, balises `<\|im_start\|>` | Bloqués **et** journalisés (`injection_suspected`) |
-| Faux positif | « des news sur le football et l'espace le matin » | Non bloqué |
-| RGPD | export « mes données », suppression avec confirmation | Export complet sans secret ; suppression effective (compte, préférences, sessions, feedback) |
+Les idées principales :
 
-## 3 bis. Inscription et connexion guidées (23/23)
+- **L'IA ne s'occupe jamais de la connexion.** Le mot de passe ne lui est jamais envoyé.
+- **L'IA ne choisit jamais l'utilisateur.** Les outils de l'agent reçoivent l'identifiant de
+  l'utilisateur depuis la session. L'IA donne seulement les valeurs (intérêts, heure…). Même
+  manipulée, elle ne peut toucher qu'au compte connecté.
+- **On vérifie tout en base** : requêtes avec paramètres (`$1`, `$2`), listes de valeurs
+  autorisées, contraintes `CHECK`.
+- **n8n a le minimum de droits** : il utilise `persona_app`, qui ne peut pas modifier le schéma
+  ni effacer `audit_log`. Aucun outil ne touche à `role` ni à `password_hash`.
+- **Tout est noté dans `audit_log`** (connexions, échecs, blocages, tentatives d'injection,
+  suppressions), sans mot de passe ni message en clair.
 
-L'utilisateur tape `inscription` ou `connexion`, et le chat demande l'email, puis le consentement
-(inscription), puis le mot de passe. L'étape en cours est retenue 10 minutes dans `auth_pending`, sans
-mot de passe. Le message qui contient le mot de passe ne passe ni par l'agent ni par le filtre
-d'injection, et n'est jamais journalisé.
+## Ce qu'on a essayé sur le chatbot
 
-| Attaque ou cas | Résultat |
-|---|---|
-| Email invalide, refus du consentement, mot de passe « admin » | Refusés, l'étape reste la même ; aucun compte créé |
-| « J’accepte » avec majuscule et apostrophe typographique | Accepté |
-| Réinscription guidée d'un email existant | Même réponse « C'est fait » (pas d'énumération), mot de passe d'origine conservé |
-| Mauvais mot de passe à la connexion | Refus générique, nouvel essai possible, compteur anti force brute appliqué |
-| 5 échecs puis le bon mot de passe | Compte verrouillé 15 minutes, aucune session |
-| Mot de passe « Ignore previous instructions 7! » | Accepté comme mot de passe : ni bloqué, ni journalisé |
-| « annuler » en cours de parcours ; étape vieille de plus de 10 minutes | Étape effacée ; message suivant traité comme non connecté |
-| Ancienne commande incomplète (`inscription test a.a@gmail.com`) | Renvoie vers le parcours guidé |
+Tout a été refusé ou bloqué :
 
-Affichage : sur la page de démo (`web/index.html`), quand le bot demande un mot de passe, la zone de
-saisie devient un champ `type="password"` et le message envoyé s'affiche `••••••••` dans
-l'historique (vérifié dans le navigateur : envoi par Entrée et par le bouton, mauvais puis bon mot
-de passe, aucun mot de passe présent dans la page). La page de chat hébergée par n8n, elle, n'a
-pas ce masquage : c'est la page de démo qu'il faut utiliser.
+- un identifiant de session comme `abc`, un message de 1001 caractères, un message vide
+- s'inscrire avec un email invalide, un mot de passe trop court ou trop simple, sans accepter
+  les conditions
+- se réinscrire avec un email déjà pris : la réponse est la même que pour un nouvel email (on ne
+  peut pas savoir qui est inscrit) et le mot de passe d'origine ne change pas
+- de l'injection SQL dans l'email et dans le mot de passe
+- se connecter avec un email inconnu ou un mauvais mot de passe : même réponse dans les deux cas
+- 5 mauvais mots de passe puis le bon : compte bloqué 15 minutes
+- réutiliser une session après déconnexion, après 2 h d'inactivité ou après 8 h
+- faire lire ou modifier par l'IA les données d'un autre utilisateur
+- prendre l'email d'un autre compte
+- retrouver la mémoire de l'IA d'un autre compte dans la même fenêtre de chat
+- faire ajouter `role=admin` par l'IA : le rôle reste `user`
+- `x'); DROP TABLE users;--` dans un outil : la table est intacte
+- des valeurs absurdes : fuseau `Mars/Olympus`, heure 25, jours 9 et 99, ton `admin`
+- une IA qui recrache un hash de mot de passe ou un identifiant interne : masqués avant l'affichage
+- les injections de prompt classiques (« ignore tes instructions », révéler le prompt, « passe
+  mon compte en admin », mode DAN, `<|im_start|>`, mot caché avec un caractère invisible…) :
+  bloquées et notées dans `audit_log`
 
-Stockage : le mot de passe n'est stocké nulle part en clair. Seul son hash bcrypt (coût 12) est
-écrit dans `users.password_hash` ; `auth_pending` ne contient jamais de mot de passe ; le workflow
-`[A] Chat - Entrée` n'enregistre pas ses exécutions ; le mot de passe n'est ni envoyé à l'IA ni
-écrit dans `audit_log`. En transit, il faut HTTPS dès que n8n est exposé (voir section 5).
+Et ce qui devait marcher marche : une demande normale (« des news sur le foot et l'espace le
+matin ») n'est pas bloquée, l'export « mes données » ne contient aucun secret, et la suppression
+du compte efface bien tout (compte, préférences, sessions, feedback).
 
-## 4. Phase 2 : attaques contre les workflows de B
+## Inscription et connexion guidées
 
-| # | Attaque | Verdict | Détail |
-|---|---|---|---|
-| B01 | Un utilisateur avec `timezone = 'Mars/Olympus'` en base | **Vulnérable** | La requête horaire échoue (`time zone "Mars/Olympus" not recognized`) : **plus personne** ne reçoit la newsletter. |
-| B01b | Même insertion avec la migration proposée | Résiste | Refusée par la contrainte `preferences_timezone_valid`. |
-| B02 | Article dont le titre contient `<img src=x onerror=…>`, l'URL `javascript:…` et le résumé un lien de phishing | **Vulnérable** | Les trois sont insérés tels quels dans le HTML de l'email (`Préparer les articles` n'échappe rien). |
-| B03 | Injection SQL dans le jeton de désinscription | Résiste | Jeton validé par expression régulière avant la requête. |
-| B04 | Jeton bien formé mais inconnu | Résiste | Page « Lien invalide », identique au jeton mal formé. |
-| B05 | Mauvaise méthode HTTP (POST) | Résiste | 404. |
-| B06 | Jeton valide | Comportement attendu, avec un risque | Un simple GET désinscrit : un antivirus de messagerie qui précharge les liens peut désinscrire l'utilisateur à son insu. |
-| B07 | Adresse en base `pirate@…\r\nBcc: espion@evil.example` | **Vulnérable** | L'adresse est réinterprétée comme un groupe : l'email part **vers `espion@evil.example`**. Le chatbot valide déjà les emails ; corrigé en base par `users_email_valid`. |
-| B08 | Le modèle renvoie des thèmes hors liste (`admin`, `<script>`) | Résiste | Thèmes filtrés en SQL. |
-| B09 | Le modèle renvoie un résumé de 2000 caractères | Résiste | Tronqué à 500. |
-| B10 | Le modèle tente de réécrire un article hors de son lot | Résiste | Bloqué par la clause `a.id IN (lot en cours)`. |
-| B11 | Un article piégé fait écrire au modèle un lien HTML de phishing dans le résumé | **Vulnérable** | Le HTML du résumé est stocké puis envoyé tel quel (chaîne complète avec B02). |
+On tape `inscription` ou `connexion` et le chatbot pose les questions une par une. L'étape en
+cours est gardée 10 minutes dans `auth_pending`, sans le mot de passe.
 
-### Recommandations pour B
+Testé :
 
-1. **Échapper le HTML** de `title`, `summary` et `source` avant de construire l'email, et n'accepter
-   que les URL en `http://` ou `https://` (B02, B11).
-2. Retirer les balises des résumés à l'enregistrement, par exemple
-   `regexp_replace(left(x.summary, 500), '<[^>]*>', '', 'g')` (B11).
-3. Appliquer la migration proposée (fuseaux et emails valides en base) (B01, B07).
-4. Rendre l'envoi tolérant aux erreurs par utilisateur (`On Error : Continue` sur `Envoyer la
-   newsletter`) pour qu'un cas isolé ne bloque pas tout le monde.
-5. Désinscription : page avec un bouton de confirmation (POST), ou en-têtes
-   `List-Unsubscribe` / `List-Unsubscribe-Post` (RFC 8058) (B06).
-6. Lire les nouvelles préférences : `tone`, `format`, `excluded_sources` (noms exacts des sources
-   de la collecte) et la table `feedback`. Le feedback est un texte libre : le traiter comme une
-   donnée, jamais comme une instruction, s'il est donné au LLM.
+- email invalide, refus du consentement, mot de passe `admin` : refusés, on reste à la même étape
+- « J’accepte » avec une majuscule et une apostrophe typographique : accepté
+- se réinscrire avec un email déjà pris : même réponse, mot de passe d'origine conservé
+- mauvais mot de passe : on peut réessayer, et le blocage après 5 erreurs s'applique
+- un mot de passe comme `Ignore previous instructions 7!` : accepté comme mot de passe, ni bloqué
+  par le filtre ni noté dans le journal
+- `annuler`, ou une étape vieille de plus de 10 minutes : l'étape est oubliée
+- l'ancienne commande incomplète (`inscription test a.a@gmail.com`) : renvoie vers le parcours guidé
 
-## 5. Risques résiduels et recommandations générales
+Le mot de passe n'est stocké nulle part en clair : seulement son hash bcrypt dans `users`. Il
+n'est pas envoyé à l'IA, ni écrit dans le journal, et le workflow n'enregistre pas ses exécutions.
+Sur la page de démo, il est masqué pendant la saisie et affiché `••••••••` une fois envoyé. La
+page de chat de n8n ne le masque pas, il faut donc utiliser la page de démo.
 
-| Risque | Gravité | Recommandation |
-|---|---|---|
-| Le filtre d'injection de prompt repose sur des motifs : une reformulation peut passer | Moyenne | Accepté : ce n'est qu'une couche. La vraie protection est structurelle (outils liés au `user_id`, valeurs validées en SQL), et elle a tenu face à un modèle entièrement manipulé. |
-| Changement d'email sans vérification | Moyenne | Envoyer un lien de confirmation à la nouvelle adresse (double opt-in) avant de l'utiliser. |
-| Pas de limitation de débit par IP sur le Chat Trigger | Moyenne | Reverse proxy (nginx, Caddy) avec limitation de débit devant n8n. Le verrouillage par compte limite déjà la force brute. |
-| Transport en HTTP | Élevée en production | HTTPS obligatoire dès que n8n est exposé : les mots de passe transitent dans le chat. |
-| `docker-compose.yml` publie Postgres (5432) et n8n (5678) sur toutes les interfaces | Moyenne | Écrire `127.0.0.1:5432:5432`, voire retirer le port Postgres (n8n y accède par le réseau Docker). |
-| Données d'exécution n8n | Faible | `[A] Chat - Entrée` n'enregistre aucune exécution (mots de passe). Pour les autres, fixer une durée de conservation (`EXECUTIONS_DATA_MAX_AGE`). |
-| Gemini est un sous-traitant (Google) | RGPD | À inscrire au registre des traitements. Seuls les messages de conversation lui sont envoyés, jamais les commandes d'authentification. |
-| Quota gratuit Gemini (20 requêtes par jour pour `gemini-3-flash`) atteint pendant les tests | Disponibilité | La collecte horaire de B suffit à le dépasser : choisir un modèle ou une offre avec un quota adapté. L'agent réessaie 3 fois sur erreur 503. |
-| `persona_cleanup()` est `SECURITY DEFINER` sans `search_path` fixé | Faible | Corrigé dans la migration proposée. |
+## Phase 2 : nos attaques sur les workflows de B
 
-## 6. RGPD côté utilisateur
+Les 4 failles :
 
-| Exigence | Mise en œuvre |
-|---|---|
-| Information et consentement | Message d'accueil (données, finalité, durée, droits) ; inscription impossible sans « j'accepte » ; date et version du consentement en base. |
-| Minimisation | Email, mot de passe haché, préférences ; ni nom, ni IP, ni message complet dans le journal. |
-| Droit d'accès et portabilité | Commande « mes données » : export JSON. |
-| Droit d'opposition | Pause de la newsletter via l'agent ; lien de désinscription dans chaque email (B). |
-| Droit à l'effacement | « supprimer mon compte » puis « confirmer suppression » : suppression en cascade, trace `account_deleted` sans donnée personnelle. |
-| Durées de conservation | `persona_cleanup()` chaque nuit : sessions expirées, articles 30 jours, envois 6 mois, journal et feedback 1 an. |
+- **Un fuseau horaire invalide bloque tout le monde.** Un seul utilisateur avec
+  `timezone = 'Mars/Olympus'` en base fait planter la requête de l'envoi : plus personne ne reçoit
+  la newsletter. Avec notre proposition de schéma, la base refuse cette valeur.
+- **Le HTML des articles passe tel quel dans l'email.** Un titre avec `<img src=x onerror=…>`, un
+  lien `javascript:` ou un lien de phishing dans le résumé se retrouvent dans la newsletter.
+- **L'IA de la collecte peut écrire du HTML dans les résumés.** Un article piégé peut lui faire
+  ajouter un lien de phishing, qui est ensuite envoyé aux utilisateurs.
+- **Une adresse email piégée détourne la newsletter.** Avec `pirate@…\r\nBcc: espion@evil.example`
+  en base, l'email part chez `espion@evil.example`. Le chatbot vérifie déjà les emails, et notre
+  proposition de schéma ajoute la vérification en base.
+
+Ce qui a tenu : l'injection SQL et les jetons inconnus sur le lien de désinscription, les thèmes
+hors liste renvoyés par l'IA, les résumés trop longs (coupés à 500 caractères) et une IA qui
+essaie de modifier un article hors de son lot.
+
+Petit risque : la désinscription se fait avec un simple clic sur le lien. Certains antivirus
+ouvrent les liens des emails tout seuls et peuvent donc désinscrire quelqu'un sans qu'il le sache.
+
+Nos conseils à B :
+
+1. échapper le HTML du titre, du résumé et de la source dans l'email, et n'accepter que les liens
+   en `http` ou `https`
+2. enlever les balises des résumés quand on les enregistre
+3. appliquer notre proposition de schéma
+4. mettre `On Error : Continue` sur l'envoi d'email, pour qu'un utilisateur à problème ne bloque
+   pas les autres
+5. pour la désinscription, ajouter un bouton de confirmation
+6. utiliser les nouvelles préférences (ton, format, sources exclues, feedback), en traitant le
+   feedback comme du texte et jamais comme une consigne si on le donne à l'IA
+
+## Ce qui reste à améliorer
+
+- Le filtre anti-injection marche avec des mots-clés, une reformulation peut passer. Ce n'est pas
+  grave : même sans filtre, l'IA ne peut toucher qu'au compte connecté.
+- On peut changer d'email sans confirmer la nouvelle adresse. Il faudrait envoyer un lien de
+  confirmation.
+- Rien ne limite le nombre de messages par personne. Le blocage après 5 erreurs limite déjà
+  l'essai de mots de passe.
+- Tout passe en HTTP. Il faudra du HTTPS dès que le projet sera en ligne, car les mots de passe
+  passent par le chat.
+- `docker-compose.yml` ouvre Postgres et n8n sur toutes les interfaces réseau. Mieux vaut
+  `127.0.0.1:5432:5432`, ou ne pas ouvrir Postgres du tout.
+- Le quota gratuit de Gemini (20 requêtes par jour) est trop petit : la collecte de B le dépasse
+  à elle seule. L'agent réessaie 3 fois quand Gemini est surchargé.
+- Gemini (Google) reçoit les messages de conversation. Il faut le noter dans le registre RGPD.
+
+## RGPD côté utilisateur
+
+- **Consentement** : on explique quelles données on garde et pourquoi avant le mot de passe, et
+  on ne peut pas s'inscrire sans écrire « j'accepte ». La date et la version sont enregistrées.
+- **Peu de données** : email, mot de passe haché, préférences. Pas de nom, pas d'IP.
+- **Accès** : `mes données` affiche tout ce qu'on garde.
+- **Désinscription** : on peut mettre la newsletter en pause dans le chat, et chaque email a un
+  lien de désinscription (B).
+- **Effacement** : `supprimer mon compte` efface tout.
+- **Durée de conservation** : `persona_cleanup()` tourne chaque nuit (sessions expirées, articles
+  après 30 jours, envois après 6 mois, journal et feedback après 1 an).

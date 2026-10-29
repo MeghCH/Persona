@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Lance Persona : démarre les conteneurs, applique la migration des workflows A
-# et importe les workflows dans n8n. Ce qui est déjà fait est sauté.
-# Usage : bash scripts/setup.sh
+# Lance Persona (conteneurs, migration, import des workflows).
+# On peut le relancer, il saute ce qui est déjà fait.
 set -e
 cd "$(dirname "$0")/.."
 
@@ -24,7 +23,7 @@ if [ "$($DC exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d persona -At -c "
   $DC exec -T postgres sh -c 'psql -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d persona' < db/proposals/03-style-feedback-timezone.sql
 fi
 
-# Réimporter désactiverait les workflows : on n'importe que s'ils sont absents.
+# réimporter désactive les workflows, donc seulement s'ils n'y sont pas
 if ! $DC exec -T n8n n8n list:workflow 2>/dev/null | grep -q PersonaChatEntr1; then
   echo "Import des workflows..."
   $DC exec -T n8n n8n import:workflow --separate --input=/home/node/exports
