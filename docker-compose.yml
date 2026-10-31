@@ -44,6 +44,15 @@ services:
       - n8n_data:/home/node/.n8n
       - ./workflows:/home/node/exports
 
+  # Page de démo avec la bulle de chat : http://localhost:8090
+  web:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8090:80"
+    volumes:
+      - ./web:/usr/share/nginx/html:ro
+
 volumes:
   postgres_data:
   n8n_data:

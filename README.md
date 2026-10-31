@@ -1,12 +1,35 @@
 # Persona
 
-Chatbot (A) et newsletter personnalisée (B), construits avec n8n et PostgreSQL.
-Les sections 1 à 5 décrivent la mise en place (Phase 0), la section 6 les
-workflows réalisés.
+Chatbot (A) et newsletter personnalisée (B), faits avec n8n et PostgreSQL.
 
-## 1. Installation (chacun sur sa machine)
+## Lancer le projet
 
-Prérequis : Docker Desktop (ou Docker + Docker Compose) et Git.
+Il faut Docker et Git.
+
+```bash
+bash scripts/setup.sh
+```
+
+La première fois, le script crée le fichier `.env` : remplir les mots de passe et relancer la commande.
+Il démarre les conteneurs, prépare la base et importe les workflows.
+
+Toujours la première fois, sur http://localhost:5678 :
+
+1. créer son compte n8n
+2. créer les credentials `Postgres Persona` (voir plus bas), `LLM Persona` (clé Gemini) et `SMTP Persona`
+3. ouvrir chaque workflow, choisir ces credentials dans les nœuds en rouge, puis l'activer
+
+Le chatbot est sur http://localhost:8090 : on clique sur la bulle et on tape `inscription`.
+
+Pour arrêter : `docker compose down`.
+
+Si ça ne marche pas :
+
+- la page ne répond pas : sous WSL, garder un terminal Ubuntu ouvert
+- « Error in workflow » : la base est arrêtée, relancer `bash scripts/setup.sh`
+- « Désolé, je n'ai pas pu traiter votre demande » : le quota Gemini du jour est épuisé
+
+## Installation à la main
 
 ```bash
 git clone <votre-repo> persona && cd persona
@@ -15,50 +38,45 @@ openssl rand -hex 32 # à coller dans N8N_ENCRYPTION_KEY
 docker compose up -d
 ```
 
-Ouvrir http://localhost:5678 et créer son compte propriétaire n8n.
-
-Le schéma de la base est créé automatiquement **au premier démarrage uniquement**.
-Si vous modifiez `db/schema/02-schema.sql`, il faut réinitialiser la base :
+Le schéma de la base est créé **au premier démarrage uniquement**. Si on modifie
+`db/schema/02-schema.sql`, il faut repartir d'une base vide :
 
 ```bash
 docker compose down -v # efface toutes les données locales
 docker compose up -d
 ```
 
-## 2. Credential Postgres dans n8n
+## Credential Postgres
 
-Dans n8n : _Credentials -> Add -> Postgres_
+Dans n8n : _Credentials -> Add -> Postgres_, nommé **`Postgres Persona`** :
 
-| Champ    | Valeur                          |
-| -------- | ------------------------------- |
-| Host     | `postgres`                      |
-| Database | `persona`                       |
-| User     | `persona_app`                   |
-| Password | valeur de `PERSONA_DB_PASSWORD` |
-| Port     | `5432`                          |
+- Host : `postgres`
+- Database : `persona`
+- User : `persona_app`
+- Password : la valeur de `PERSONA_DB_PASSWORD`
+- Port : `5432`
 
-Nom du credential : **`Postgres Persona`** (le même chez vous deux).
-On utilise `persona_app` et pas le compte admin : même si un attaquant
-détourne une requête, il ne peut pas supprimer de tables.
+On utilise `persona_app` et pas le compte admin : même si un attaquant détourne une
+requête, il ne peut pas supprimer de tables.
 
-## 3. Conventions d'équipe
+## Conventions d'équipe
 
-**Workflows** (préfixe = responsable)
+**Workflows** (le préfixe indique qui s'en occupe) :
 
 - `[A] Chat - Entrée` : Chat Trigger + authentification
 - `[A] Chat - Agent` : agent IA et ses outils
 - `[B] News - Collecte` : récupération des sources
 - `[B] News - Envoi` : sélection + newsletter planifiée
 - `[B] News - Désinscription` : lien de désinscription en un clic (webhook)
-- `[Commun] Maintenance RGPD` : nettoyage RGPD nocturne (`SELECT persona_cleanup();`)
+- `[Commun] Maintenance RGPD` : nettoyage RGPD de nuit (`SELECT persona_cleanup();`)
 
-**Credentials** : noms génériques, jamais de nom/email perso
+**Credentials** : noms génériques, jamais de nom ou d'email perso
 (`Postgres Persona`, `SMTP Persona`, `LLM Persona`).
 
-**Nœuds** : renommer chaque nœud avec un verbe (`Vérifier session`,
-`Hasher mot de passe`…), jamais `Postgres1`, `Code3`.
+**Nœuds** : chaque nœud a un nom avec un verbe (`Vérifier session`, `Hasher mot de passe`…),
+jamais `Postgres1` ou `Code3`.
 
-**Base de données** : aucune modification du schéma sans accord des deux.
+**Base de données** : pas de modification du schéma sans accord des deux.
 Les mots de passe se hashent en SQL :
 
 ```sql
@@ -69,11 +87,10 @@ VALUES ($1, crypt($2, gen_salt('bf')), now(), 'v1');
 SELECT id FROM users WHERE email = $1 AND password_hash = crypt($2, password_hash);
 ```
 
-Toujours utiliser les **paramètres de requête** (`$1`, `$2` dans le nœud Postgres,
-option _Query Parameters_), jamais de concaténation de texte : c'est votre
-protection contre l'injection SQL.
+Toujours passer par les **paramètres de requête** (`$1`, `$2`, option _Query Parameters_
+du nœud Postgres), jamais de concaténation : c'est ce qui protège de l'injection SQL.
 
-## 4. Partager son travail (Git)
+## Partager son travail (Git)
 
 ```bash
 # exporter tous les workflows depuis n8n vers ./workflows
@@ -90,9 +107,10 @@ git pull
 docker compose exec n8n n8n import:workflow --separate --input=/home/node/exports
 ```
 
-Puis ré-associer les credentials dans les nœuds concernés.
+Puis ré-associer les credentials dans les nœuds. Après un import, ils s'appellent
+`<type> (à configurer)` (renommés par `scripts/sanitize.py`).
 
-## 5. Checklist de fin de Phase 0
+## Checklist de fin de Phase 0
 
 - [ ] n8n tourne chez A et chez B
 - [ ] la base `persona` contient les 6 tables (`users`, `sessions`, `preferences`,
@@ -102,18 +120,57 @@ Puis ré-associer les credentials dans les nœuds concernés.
 - [ ] un compte email d'envoi de test (SMTP Gmail avec mot de passe d'application, Brevo, Mailtrap…)
 - [ ] repo Git créé, premier export/import réussi dans les deux sens
 
-## 6. Workflows réalisés
+## Les workflows
 
-| Workflow                     | Fichier                                  | Déclencheur              | Credentials                                 |
-| ---------------------------- | ---------------------------------------- | ------------------------ | ------------------------------------------- |
-| `[B] News - Collecte`        | `workflows/b_news_collecte.json`         | toutes les heures        | `Postgres Persona`, `LLM Persona` (Gemini)  |
-| `[B] News - Envoi`           | `workflows/b_news_envoi.json`            | toutes les heures à h00  | `Postgres Persona`, `SMTP Persona`          |
-| `[B] News - Désinscription`  | `workflows/b_news_desinscription.json`   | webhook `/unsubscribe`   | `Postgres Persona`                          |
-| `[Commun] Maintenance RGPD`  | `workflows/commun_maintenance_rgpd.json` | tous les jours à 3 h     | `Postgres Persona`                          |
+- `[A] Chat - Entrée` (`workflows/a_chat_entree.json`) : Chat Trigger, Postgres
+- `[A] Chat - Agent` (`workflows/a_chat_agent.json`) : appelé par `Chat - Entrée`, Postgres + Gemini
+- `[B] News - Collecte` (`workflows/b_news_collecte.json`) : toutes les heures, Postgres + Gemini
+- `[B] News - Envoi` (`workflows/b_news_envoi.json`) : toutes les heures à h00, Postgres + SMTP
+- `[B] News - Désinscription` (`workflows/b_news_desinscription.json`) : webhook `/unsubscribe`, Postgres
+- `[Commun] Maintenance RGPD` (`workflows/commun_maintenance_rgpd.json`) : tous les jours à 3 h, Postgres
 
-Après un import, les credentials apparaissent sous le nom `<type> (à configurer)`
-(renommés par `scripts/sanitize.py`) : les ré-associer dans chaque nœud, puis
-activer les workflows.
+Les workflows A ont besoin de `db/proposals/03-style-feedback-timezone.sql` (ton, format,
+feedback, inscription guidée…). `scripts/setup.sh` l'applique tout seul. C'est une
+proposition : à valider à deux avant de la mettre dans `02-schema.sql`.
+
+### `[A] Chat - Entrée`
+
+Le chat se fait depuis la page http://localhost:8090 (fichier `web/index.html`, servi par
+le conteneur `web`). Il y a aussi la page de chat de n8n, sans mise en forme :
+http://localhost:5678/webhook/9d5a3c0e-6c1e-4b6e-9a53-2f0c7a8f4a11/chat
+
+Ce qu'on peut écrire au chatbot :
+
+- `inscription` : il demande l'email, le consentement puis le mot de passe
+- `connexion` : il demande l'email puis le mot de passe
+- `annuler` : arrête l'inscription ou la connexion en cours
+- `deconnexion`
+- `mes données` : affiche tout ce qu'on garde sur l'utilisateur
+- `supprimer mon compte`, puis `confirmer suppression`
+- `aide`
+- n'importe quel autre message, une fois connecté : il part à l'agent
+
+On peut aussi s'inscrire ou se connecter en une ligne :
+`inscription EMAIL MOT_DE_PASSE j'accepte` et `connexion EMAIL MOT_DE_PASSE`.
+
+Tout ce qui touche à la connexion est fait en SQL, sans l'IA. Le mot de passe est haché
+avec bcrypt, il fait au moins 12 caractères, et 5 erreurs bloquent le compte 15 minutes.
+Une session dure 2 h sans activité (8 h maximum). Sur la page, le mot de passe est masqué
+quand on le tape et affiché `••••••••` dans la conversation.
+
+Ce workflow n'enregistre pas ses exécutions, parce que les messages contiennent des mots
+de passe. Pour déboguer, on peut réactiver la sauvegarde dans les _Settings_ du workflow.
+
+### `[A] Chat - Agent`
+
+Agent Gemini avec 8 outils : `lire_preferences`, `modifier_interets`, `modifier_horaire`,
+`modifier_email`, `activer_newsletter`, `modifier_style`, `exclure_source`, `donner_feedback`.
+
+L'identifiant de l'utilisateur vient de la session, jamais de l'IA : même si on manipule
+le modèle, il ne peut toucher qu'au compte connecté. Les centres d'intérêt doivent faire
+partie des thèmes de la collecte (`sport`, `technologie`…).
+
+Les protections et les tests sont détaillés dans [doc/audit-securite.md](doc/audit-securite.md).
 
 ### `[B] News - Collecte`
 
@@ -176,32 +233,28 @@ curl "http://localhost:5678/webhook/unsubscribe?token=00000000-0000-0000-0000-00
 ### `[Commun] Maintenance RGPD`
 
 Chaque nuit à 3 h, appelle `SELECT persona_cleanup();` puis ajoute un événement
-`retention_cleanup` dans `audit_log`. Durées de conservation appliquées :
+`retention_cleanup` dans `audit_log`. Ce qui est supprimé :
 
-| Donnée                    | Supprimée après  |
-| ------------------------- | ---------------- |
-| `sessions`                | expiration       |
-| `articles`                | 30 jours         |
-| `sent_newsletters`        | 6 mois           |
-| `audit_log`               | 1 an             |
+- `sessions` : une fois expirées
+- `articles` : après 30 jours
+- `sent_newsletters` : après 6 mois
+- `audit_log` : après 1 an
 
 `persona_app` n'a pas le droit de supprimer dans `audit_log` : la fonction est
 `SECURITY DEFINER` et s'exécute avec les droits de son propriétaire.
 
 ## Sources de news
 
-| Source      | Flux RSS                               | Thèmes                             |
-| ----------- | -------------------------------------- | ---------------------------------- |
-| Le Monde    | https://www.lemonde.fr/rss/une.xml     | Actualité générale, international  |
-| France Info | https://www.francetvinfo.fr/titres.rss | Actualité générale, société, sport |
-| Numerama    | https://www.numerama.com/feed/         | Tech, sciences, espace             |
-| BBC News    | https://feeds.bbci.co.uk/news/rss.xml  | International (anglais)            |
+- Le Monde (https://www.lemonde.fr/rss/une.xml) : actualité générale, international
+- France Info (https://www.francetvinfo.fr/titres.rss) : actualité générale, société, sport
+- Numerama (https://www.numerama.com/feed/) : tech, sciences, espace
+- BBC News (https://feeds.bbci.co.uk/news/rss.xml) : international, en anglais
 
 Choix : thèmes variés pour que le filtrage par intérêts ait du sens, une source anglophone
 pour l'international. La newsletter ne contient qu'un résumé et un lien vers l'article original
 (respect du droit d'auteur). France Info nécessite un en-tête `User-Agent` dans les requêtes.
 
-### Pour verifier le flux :
+### Pour vérifier le flux :
 
 ```bash
 curl -sL -A "Mozilla/5.0" https://feeds.bbci.co.uk/news/rss.xml | head -c 300
