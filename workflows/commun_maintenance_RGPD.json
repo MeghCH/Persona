@@ -1,11 +1,5 @@
 {
-  "updatedAt": "2026-10-28T11:27:05.256Z",
-  "createdAt": "2026-10-28T11:23:19.121Z",
-  "id": "7yCxC8evf0nnA0KJ",
   "name": "[Commun] Maintenance RGPD",
-  "description": null,
-  "active": true,
-  "isArchived": false,
   "nodes": [
     {
       "parameters": {
@@ -30,7 +24,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT persona_cleanup();\nINSERT INTO audit_log (event) VALUES ('retention_cleanup');",
+        "query": "INSERT INTO audit_log (event, details) VALUES ('night_cleanup', jsonb_build_object(\n  'articles', (SELECT count(*) FROM articles WHERE fetched_at < now() - INTERVAL '30 days'),\n  'envois',   (SELECT count(*) FROM sent_newsletters WHERE sent_at < now() - INTERVAL '6 months'),\n  'sessions', (SELECT count(*) FROM sessions WHERE expires_at < now())\n));\nSELECT persona_cleanup();",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
@@ -62,22 +56,17 @@
       ]
     }
   },
+  "active": true,
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
+  "versionId": "a3de30ac-9d8c-42af-85b7-970843f36b30",
   "meta": {
-    "templateCredsSetupCompleted": true
+    "templateCredsSetupCompleted": true,
+    "instanceId": "459b493c2f55b9502fee9e7c95d986d0fcdb0ac77db0b81ed8e1520e7b577ded"
   },
   "nodeGroups": [],
-  "versionId": "b526ad79-5771-4eb4-b979-05da27519839",
-  "activeVersionId": "b526ad79-5771-4eb4-b979-05da27519839",
-  "versionCounter": 7,
-  "triggerCount": 1,
-  "sourceWorkflowId": null,
-  "tags": [],
-  "versionMetadata": {
-    "name": "v1 - Nettoyage RGPD nocturne",
-    "description": ""
-  }
+  "id": "7yCxC8evf0nnA0KJ",
+  "tags": []
 }
