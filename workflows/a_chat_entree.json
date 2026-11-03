@@ -30,7 +30,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const input = $input.first().json;\nconst out = { route: 'error', cmd: 'error', sessionId: '', message: '', raw: '', exact: '', email: '', password: '', error: '' };\nconst fail = (msg) => {\n  // on vide le mot de passe et le texte en cas d'erreur\n  Object.assign(out, { route: 'error', cmd: 'error', error: msg, password: '', message: '', raw: '' });\n  return [{ json: out }];\n};\n\n// sessionId trop court = trop facile à deviner\nconst sessionId = typeof input.sessionId === 'string' ? input.sessionId : '';\nif (!/^[A-Za-z0-9_-]{32,64}$/.test(sessionId)) {\n  return fail('Session invalide : rechargez la page du chat.');\n}\nout.sessionId = sessionId;\n\nlet text = typeof input.chatInput === 'string' ? input.chatInput : '';\ntext = text.normalize('NFKC')\n  .replace(/[\\u200b-\\u200f\\u202a-\\u202e\\u2060-\\u2064\\ufeff\\u00ad]/g, '')  // caract\\u00e8res invisibles\n  .replace(/[\\u0000-\\u001f\\u007f\\u2028\\u2029]/g, ' ')\n  .replace(/\\u2019/g, \"'\")\n  .trim();\nif (!text) return fail('Message vide.');\nif (text.length > 1000) return fail('Message trop long (1000 caractères maximum).');\n\nconst strip = (s) => s.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');\nconst EMAIL_RE = /^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,}$/;\nconst bytes = (s) => new TextEncoder().encode(s).length;\nconst pwdError = (pwd, email) => {\n  if (bytes(pwd) > 72) return 'Mot de passe trop long (72 octets maximum).';\n  if (pwd.length < 12) return 'Mot de passe trop court (12 caractères minimum).';\n  const classes = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^A-Za-z0-9]/].filter((r) => r.test(pwd)).length;\n  if (classes < 3) return 'Mot de passe trop faible : mélangez au moins 3 types parmi minuscules, majuscules, chiffres et symboles.';\n  const name = email.split('@')[0].toLowerCase();\n  if (name.length >= 4 && pwd.toLowerCase().includes(name)) return 'Le mot de passe ne doit pas contenir votre identifiant email.';\n  return '';\n};\n\nconst parts = text.split(/\\s+/);\nconst head = strip(parts[0]);\nconst exact = strip(text).replace(/[.!?\\s]+$/, '');\nout.raw = text;\nout.exact = exact;\n\nconst START_REGISTER = ['inscription', \"s'inscrire\", 'sinscrire', \"je veux m'inscrire\", 'je veux minscrire',\n  'creer un compte', 'creer mon compte', 'nouveau compte', 'sign up', 'register'];\nconst START_LOGIN = ['connexion', 'se connecter', 'je veux me connecter', \"m'identifier\", 'login', 'log in', 'sign in'];\n\nif (START_REGISTER.includes(exact)) {\n  Object.assign(out, { route: 'session', cmd: 'register_start' });\n} else if (START_LOGIN.includes(exact)) {\n  Object.assign(out, { route: 'session', cmd: 'login_start' });\n} else if (['annuler', 'cancel', 'stop'].includes(exact)) {\n  Object.assign(out, { route: 'session', cmd: 'cancel' });\n} else if (head === 'inscription') {\n  // inscription EMAIL MOT_DE_PASSE j'accepte\n  if (parts.length !== 4) return fail(\"Pour créer un compte, tapez simplement « inscription » : je vous guide étape par étape.\");\n  const email = parts[1].toLowerCase();\n  const password = parts[2];\n  if (email.length > 254 || !EMAIL_RE.test(email)) return fail('Adresse email invalide.');\n  const pe = pwdError(password, email);\n  if (pe) return fail(pe);\n  if (![\"accepte\", \"j'accepte\", 'jaccepte'].includes(strip(parts[3]))) {\n    return fail(\"Le consentement est obligatoire : terminez la commande par « j'accepte ».\");\n  }\n  Object.assign(out, { route: 'register', cmd: 'register', email, password, raw: '' });\n} else if (head === 'connexion') {\n  // connexion EMAIL MOT_DE_PASSE\n  if (parts.length !== 3) return fail('Pour vous connecter, tapez simplement « connexion » : je vous guide étape par étape.');\n  const email = parts[1].toLowerCase();\n  const password = parts[2];\n  if (email.length > 254 || !EMAIL_RE.test(email) || bytes(password) > 72) {\n    return fail('Pour vous connecter, tapez simplement « connexion » : je vous guide étape par étape.');\n  }\n  Object.assign(out, { route: 'login', cmd: 'login', email, password, raw: '' });\n} else {\n  out.route = 'session';\n  if (['deconnexion', 'logout'].includes(exact)) out.cmd = 'logout';\n  else if (exact === 'supprimer mon compte') out.cmd = 'delete_request';\n  else if (exact === 'confirmer suppression') out.cmd = 'delete_confirm';\n  else if (['mes donnees', 'exporter mes donnees'].includes(exact)) out.cmd = 'export';\n  else if (['aide', 'help'].includes(exact)) out.cmd = 'help';\n  else { out.cmd = 'chat'; out.message = text; }\n}\nreturn [{ json: out }];"
+        "jsCode": "const input = $input.first().json;\nconst out = { route: 'error', cmd: 'error', sessionId: '', message: '', raw: '', exact: '', email: '', password: '', error: '' };\nconst fail = (msg) => {\n  // on vide le mot de passe et le texte en cas d'erreur\n  Object.assign(out, { route: 'error', cmd: 'error', error: msg, password: '', message: '', raw: '' });\n  return [{ json: out }];\n};\n\n// sessionId trop court = trop facile à deviner\nconst sessionId = typeof input.sessionId === 'string' ? input.sessionId : '';\nif (!/^[A-Za-z0-9_-]{32,64}$/.test(sessionId)) {\n  return fail('Session invalide : rechargez la page du chat.');\n}\nout.sessionId = sessionId;\n\nlet text = typeof input.chatInput === 'string' ? input.chatInput : '';\ntext = text.normalize('NFKC')\n  .replace(/[\\u200b-\\u200f\\u202a-\\u202e\\u2060-\\u2064\\ufeff\\u00ad]/g, '')  // caract\\u00e8res invisibles\n  .replace(/[\\u0000-\\u001f\\u007f\\u2028\\u2029]/g, ' ')\n  .replace(/\\u2019/g, \"'\")\n  .trim();\nif (!text) return fail('Message vide.');\nif (text.length > 1000) return fail('Message trop long (1000 caractères maximum).');\n\nconst strip = (s) => s.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');\nconst EMAIL_RE = /^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,}$/;\nconst bytes = (s) => new TextEncoder().encode(s).length;\nconst pwdError = (pwd, email) => {\n  if (bytes(pwd) > 72) return 'Mot de passe trop long (72 octets maximum).';\n  if (pwd.length < 12) return 'Mot de passe trop court (12 caractères minimum).';\n  const classes = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^A-Za-z0-9]/].filter((r) => r.test(pwd)).length;\n  if (classes < 3) return 'Mot de passe trop faible : mélangez au moins 3 types parmi minuscules, majuscules, chiffres et symboles.';\n  const name = email.split('@')[0].toLowerCase();\n  if (name.length >= 4 && pwd.toLowerCase().includes(name)) return 'Le mot de passe ne doit pas contenir votre identifiant email.';\n  return '';\n};\n\nconst parts = text.split(/\\s+/);\nconst head = strip(parts[0]);\nconst exact = strip(text).replace(/[.!?\\s]+$/, '');\nout.raw = text;\nout.exact = exact;\n\nconst START_REGISTER = ['inscription', \"s'inscrire\", 'sinscrire', \"je veux m'inscrire\", 'je veux minscrire',\n  'creer un compte', 'creer mon compte', 'nouveau compte', 'sign up', 'register'];\nconst START_LOGIN = ['connexion', 'se connecter', 'je veux me connecter', \"m'identifier\", 'login', 'log in', 'sign in'];\n\nif (START_REGISTER.includes(exact)) {\n  Object.assign(out, { route: 'session', cmd: 'register_start' });\n} else if (START_LOGIN.includes(exact)) {\n  Object.assign(out, { route: 'session', cmd: 'login_start' });\n} else if (['annuler', 'cancel', 'stop'].includes(exact)) {\n  Object.assign(out, { route: 'session', cmd: 'cancel' });\n} else if (['en savoir plus', 'savoir plus', 'politique de confidentialite', 'confidentialite'].includes(exact)) {\n  Object.assign(out, { route: 'session', cmd: 'privacy' });\n} else if (head === 'inscription') {\n  // inscription EMAIL MOT_DE_PASSE j'accepte\n  if (parts.length !== 4) return fail(\"Pour créer un compte, tapez simplement « inscription » : je vous guide étape par étape.\");\n  const email = parts[1].toLowerCase();\n  const password = parts[2];\n  if (email.length > 254 || !EMAIL_RE.test(email)) return fail('Adresse email invalide.');\n  const pe = pwdError(password, email);\n  if (pe) return fail(pe);\n  if (![\"accepte\", \"j'accepte\", 'jaccepte'].includes(strip(parts[3]))) {\n    return fail(\"Le consentement est obligatoire : terminez la commande par « j'accepte ».\");\n  }\n  Object.assign(out, { route: 'register', cmd: 'register', email, password, raw: '' });\n} else if (head === 'connexion') {\n  // connexion EMAIL MOT_DE_PASSE\n  if (parts.length !== 3) return fail('Pour vous connecter, tapez simplement « connexion » : je vous guide étape par étape.');\n  const email = parts[1].toLowerCase();\n  const password = parts[2];\n  if (email.length > 254 || !EMAIL_RE.test(email) || bytes(password) > 72) {\n    return fail('Pour vous connecter, tapez simplement « connexion » : je vous guide étape par étape.');\n  }\n  Object.assign(out, { route: 'login', cmd: 'login', email, password, raw: '' });\n} else {\n  out.route = 'session';\n  if (['deconnexion', 'logout'].includes(exact)) out.cmd = 'logout';\n  else if (exact === 'supprimer mon compte') out.cmd = 'delete_request';\n  else if (exact === 'confirmer suppression') out.cmd = 'delete_confirm';\n  else if (['mes donnees', 'exporter mes donnees'].includes(exact)) out.cmd = 'export';\n  else if (['aide', 'help'].includes(exact)) out.cmd = 'help';\n  else { out.cmd = 'chat'; out.message = text; }\n}\nreturn [{ json: out }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -180,7 +180,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH new_user AS (\n  INSERT INTO users (email, password_hash, consent_given_at, consent_version)\n  VALUES ($1::text, crypt($2::text, gen_salt('bf', 12)), now(), 'v1')\n  ON CONFLICT (email) DO NOTHING\n  RETURNING id\n), prefs AS (\n  INSERT INTO preferences (user_id) SELECT id FROM new_user\n), log_ok AS (\n  INSERT INTO audit_log (event, user_id, details)\n  SELECT 'register_ok', id, '{}'::jsonb FROM new_user\n), log_dup AS (\n  INSERT INTO audit_log (event, details)\n  SELECT 'register_duplicate', '{}'::jsonb WHERE NOT EXISTS (SELECT 1 FROM new_user)\n)\nSELECT 'done' AS status;",
+        "query": "WITH new_user AS (\n  INSERT INTO users (email, password_hash, consent_given_at, consent_version)\n  VALUES ($1::text, crypt($2::text, gen_salt('bf', 12)), now(), 'v2')\n  ON CONFLICT (email) DO NOTHING\n  RETURNING id\n), prefs AS (\n  INSERT INTO preferences (user_id) SELECT id FROM new_user\n), log_ok AS (\n  INSERT INTO audit_log (event, user_id, details)\n  SELECT 'register_ok', id, '{}'::jsonb FROM new_user\n), log_dup AS (\n  INSERT INTO audit_log (event, user_id, details)\n  SELECT 'register_duplicate', (SELECT id FROM users WHERE email = $1::text), '{}'::jsonb\n  WHERE NOT EXISTS (SELECT 1 FROM new_user)\n)\nSELECT 'done' AS status;",
         "options": {
           "queryReplacement": "={{ [ $json.email, $json.password ] }}"
         }
@@ -297,7 +297,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const a = $('Analyser le message').first().json;\nconst s = $input.first().json;\nlet action;\nif (['register_start', 'login_start', 'cancel'].includes(a.cmd)) action = a.cmd;\nelse if (!s.user_id && s.step) action = s.step;\nelse if (!s.user_id) action = 'anonymous';\nelse action = a.cmd;\nreturn [{ json: { action, user_id: s.user_id || null, pending_email: s.email || '' } }];"
+        "jsCode": "const a = $('Analyser le message').first().json;\nconst s = $input.first().json;\nlet action;\nif (['register_start', 'login_start', 'cancel', 'privacy'].includes(a.cmd)) action = a.cmd;\nelse if (!s.user_id && s.step) action = s.step;\nelse if (!s.user_id) action = 'anonymous';\nelse action = a.cmd;\nreturn [{ json: { action, user_id: s.user_id || null, pending_email: s.email || '' } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -671,6 +671,30 @@
               },
               "renameOutput": true,
               "outputKey": "login_password"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "bfc9ae63-cd4a-5af9-9640-64b6831b203d",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "privacy",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "privacy"
             }
           ]
         },
@@ -880,7 +904,7 @@
             {
               "id": "416751a7-538f-5ba4-bde5-5c584e3a7bed",
               "name": "output",
-              "value": "={{ $json.ok ? \"Avant de continuer : Persona conservera votre email, votre mot de passe (haché, illisible), vos centres d'intérêt et vos horaires d'envoi, uniquement pour vous envoyer votre newsletter, jusqu'à la suppression de votre compte. Vous pourrez exporter ou supprimer vos données à tout moment.\\nTapez « j'accepte » pour continuer, ou « annuler ».\" : \"Cette adresse email n'est pas valide. Réessayez, ou tapez « annuler ».\" }}",
+              "value": "={{ $json.ok ? \"Acceptez-vous notre politique de confidentialité ? Tapez « j'accepte » pour continuer.\\n\\nPour en savoir plus, tapez « en savoir plus ». Pour arrêter, tapez « annuler ».\" : \"Cette adresse email n'est pas valide. Réessayez, ou tapez « annuler ».\" }}",
               "type": "string"
             }
           ]
@@ -927,7 +951,7 @@
             {
               "id": "ecbeab62-5e22-51f0-af1d-4dba8621506d",
               "name": "output",
-              "value": "={{ $json.ok ? \"Merci. Choisissez un mot de passe : au moins 12 caractères, avec au moins 3 types parmi : minuscules, majuscules, chiffres, symboles.\" : \"Pour créer un compte, tapez « j'accepte », ou « annuler ».\" }}",
+              "value": "={{ $json.ok ? \"Merci. Choisissez un mot de passe : au moins 12 caractères, avec au moins 3 types parmi : minuscules, majuscules, chiffres, symboles.\" : \"Pour créer un compte, tapez « j'accepte ». Pour lire la politique de confidentialité, tapez « en savoir plus ». Pour arrêter, tapez « annuler ».\" }}",
               "type": "string"
             }
           ]
@@ -959,7 +983,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH ok AS (SELECT 1 WHERE $3::text = ''),\nnew_user AS (\n  INSERT INTO users (email, password_hash, consent_given_at, consent_version)\n  SELECT $1::text, crypt($2::text, gen_salt('bf', 12)), now(), 'v1' FROM ok\n  ON CONFLICT (email) DO NOTHING\n  RETURNING id\n), prefs AS (\n  INSERT INTO preferences (user_id) SELECT id FROM new_user\n), log_ok AS (\n  INSERT INTO audit_log (event, user_id, details) SELECT 'register_ok', id, '{}'::jsonb FROM new_user\n), log_dup AS (\n  INSERT INTO audit_log (event, details)\n  SELECT 'register_duplicate', '{}'::jsonb WHERE EXISTS (SELECT 1 FROM ok) AND NOT EXISTS (SELECT 1 FROM new_user)\n), done AS (\n  DELETE FROM auth_pending WHERE chat_session_id = $4::text AND EXISTS (SELECT 1 FROM ok)\n)\nSELECT 'done' AS status;",
+        "query": "WITH ok AS (SELECT 1 WHERE $3::text = ''),\nnew_user AS (\n  INSERT INTO users (email, password_hash, consent_given_at, consent_version)\n  SELECT $1::text, crypt($2::text, gen_salt('bf', 12)), now(), 'v2' FROM ok\n  ON CONFLICT (email) DO NOTHING\n  RETURNING id\n), prefs AS (\n  INSERT INTO preferences (user_id) SELECT id FROM new_user\n), log_ok AS (\n  INSERT INTO audit_log (event, user_id, details) SELECT 'register_ok', id, '{}'::jsonb FROM new_user\n), log_dup AS (\n  INSERT INTO audit_log (event, user_id, details)\n  SELECT 'register_duplicate', (SELECT id FROM users WHERE email = $1::text), '{}'::jsonb\n  WHERE EXISTS (SELECT 1 FROM ok) AND NOT EXISTS (SELECT 1 FROM new_user)\n), done AS (\n  DELETE FROM auth_pending WHERE chat_session_id = $4::text AND EXISTS (SELECT 1 FROM ok)\n)\nSELECT 'done' AS status;",
         "options": {
           "queryReplacement": "={{ [ $('Choisir l\\'étape').first().json.pending_email, $('Analyser le message').first().json.raw, $json.error, $('Analyser le message').first().json.sessionId ] }}"
         }
@@ -1096,6 +1120,29 @@
       ],
       "id": "52ed1587-a49d-5980-96f6-e28050c16221",
       "name": "Répondre connexion (guidée)"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "65b46caa-8a87-5678-a068-6fcef85fac28",
+              "name": "output",
+              "value": "=**Politique de confidentialité**\n\n**Qui est responsable de vos données ?** L'équipe Persona. Contact : personaepitech26@gmail.com.\n\n**Quelles données collectons-nous ?**\n\n- votre adresse email, pour vous envoyer la newsletter et vous identifier ;\n- votre mot de passe, conservé uniquement sous forme chiffrée (haché) ;\n- vos centres d'intérêt, votre heure et vos jours d'envoi, votre fuseau horaire et vos réglages de newsletter ;\n- l'historique des newsletters envoyées et les retours que vous nous laissez ;\n- un journal des actions sensibles (connexions, désinscriptions, suppressions), pour la sécurité du service.\n\nNous ne collectons ni votre nom, ni votre adresse, ni votre âge.\n\n**Pourquoi ?** Uniquement pour vous envoyer une newsletter personnalisée et protéger votre compte. Vos données ne sont ni vendues, ni utilisées pour de la publicité.\n\n**Combien de temps ?** Votre compte et vos préférences sont conservés jusqu'à sa suppression, ou 6 mois après votre désinscription. L'historique des envois est supprimé après 6 mois, le journal et vos retours après 1 an. Un nettoyage automatique s'exécute chaque nuit.\n\n**Qui y a accès ?** L'équipe Persona, et deux prestataires techniques : Google Gemini, qui classe et résume les articles et répond dans le chat, et Gmail, qui envoie les emails.\n\n**Vos droits.** À tout moment, depuis le chat, vous pouvez consulter et exporter vos données, modifier vos préférences, vous désinscrire ou supprimer votre compte. La suppression efface toutes vos données liées. Chaque newsletter contient aussi un lien de désinscription en un clic. Vous pouvez enfin adresser une réclamation à la CNIL.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1280,
+        2360
+      ],
+      "id": "e33730d3-c922-5655-ae97-012f2858ce04",
+      "name": "Répondre politique de confidentialité"
     },
     {
       "parameters": {
@@ -1694,6 +1741,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Répondre politique de confidentialité",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -1885,6 +1939,17 @@
       ]
     },
     "Répondre connexion (guidée)": {
+      "main": [
+        [
+          {
+            "node": "Formater la réponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Répondre politique de confidentialité": {
       "main": [
         [
           {

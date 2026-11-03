@@ -6,7 +6,7 @@ Persona ne collecte que l'email, les centres d'intérêt et l'heure d'envoi de s
 
 ## Politique de confidentialité
 
-Ce texte est affiché par le chatbot quand l'utilisateur tape « en savoir plus » avant d'accepter, ou demande ce que Persona fait de ses données. Version v1, à faire passer en v2 dans `consent_version` à chaque modification.
+Ce texte est affiché par le chatbot quand l'utilisateur tape « en savoir plus » avant d'accepter, ou demande ce que Persona fait de ses données. Version v2 (suppression du compte 6 mois après la désinscription), à faire passer en v3 dans `consent_version` à chaque modification.
 
 **Qui est responsable de vos données ?** L'équipe Persona. Contact : personaepitech26@gmail.com.
 
@@ -22,7 +22,7 @@ Nous ne collectons ni votre nom, ni votre adresse, ni votre âge.
 
 **Pourquoi ?** Uniquement pour vous envoyer une newsletter personnalisée et protéger votre compte. Vos données ne sont ni vendues, ni utilisées pour de la publicité.
 
-**Combien de temps ?** Votre compte et vos préférences sont conservés jusqu'à sa suppression. L'historique des envois est supprimé après 6 mois, le journal et vos retours après 1 an. Un nettoyage automatique s'exécute chaque nuit.
+**Combien de temps ?** Votre compte et vos préférences sont conservés jusqu'à sa suppression, ou 6 mois après votre désinscription. L'historique des envois est supprimé après 6 mois, le journal et vos retours après 1 an. Un nettoyage automatique s'exécute chaque nuit.
 
 **Qui y a accès ?** L'équipe Persona, et deux prestataires techniques : Google Gemini, qui classe et résume les articles et répond dans le chat, et Gmail, qui envoie les emails.
 
@@ -34,8 +34,8 @@ Chaque donnée personnelle a une finalité, une base légale et une durée ; les
 
 | Traitement | Données | Finalité | Base légale | Durée de conservation | Où |
 | --- | --- | --- | --- | --- | --- |
-| Compte | email, mot de passe haché (bcrypt), date et version du consentement, jeton de désinscription | identifier l'utilisateur, prouver son consentement | consentement | jusqu'à la suppression du compte | `users` |
-| Préférences | thèmes, heure et jours d'envoi, fuseau, ton, format, sources exclues, statut d'abonnement | personnaliser la newsletter | consentement | jusqu'à la suppression du compte | `preferences` |
+| Compte | email, mot de passe haché (bcrypt), date et version du consentement, jeton de désinscription | identifier l'utilisateur, prouver son consentement | consentement | jusqu'à la suppression du compte, ou 6 mois après la désinscription | `users` |
+| Préférences | thèmes, heure et jours d'envoi, fuseau, ton, format, sources exclues, statut d'abonnement | personnaliser la newsletter | consentement | jusqu'à la suppression du compte, ou 6 mois après la désinscription | `preferences` |
 | Sessions du chat | identifiant de session, utilisateur, expiration | maintenir la connexion | sécurité du service | quelques heures, puis suppression nocturne | `sessions` |
 | Inscription en cours | identifiant de session, étape, email | guider l'inscription ou la connexion | consentement en cours de recueil | 1 heure | `auth_pending` |
 | Historique des envois | utilisateur, articles envoyés, date | éviter les doublons, répondre aux demandes | intérêt légitime | 6 mois | `sent_newsletters` |
