@@ -141,7 +141,8 @@ http://localhost:5678/webhook/9d5a3c0e-6c1e-4b6e-9a53-2f0c7a8f4a11/chat
 
 Ce qu'on peut écrire au chatbot :
 
-- `inscription` : il demande l'email, le consentement puis le mot de passe
+- `inscription` : il demande l'email, si on accepte la politique de confidentialité, puis le mot de passe
+- `en savoir plus` : affiche la politique de confidentialité (celle de `doc/normes-RGPD.md`)
 - `connexion` : il demande l'email puis le mot de passe
 - `annuler` : arrête l'inscription ou la connexion en cours
 - `deconnexion`
@@ -235,6 +236,7 @@ curl "http://localhost:5678/webhook/unsubscribe?token=00000000-0000-0000-0000-00
 Chaque nuit à 3 h, appelle `SELECT persona_cleanup();` puis ajoute un événement
 `retention_cleanup` dans `audit_log`. Ce qui est supprimé :
 
+- les comptes désabonnés : 6 mois après la désinscription (la date est notée toute seule en base)
 - `sessions` : une fois expirées
 - `articles` : après 30 jours
 - `sent_newsletters` : après 6 mois
