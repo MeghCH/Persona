@@ -1,18 +1,17 @@
 -- =====================================================================
 -- Persona - schéma de la base partagée
--- C'est le "contrat" entre la personne A (chat/auth) et B (news/envoi).
 -- =====================================================================
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;  -- hash des mots de passe (bcrypt) + UUID
 
--- un seul fuseau invalide en base fait planter l'envoi de B pour tout le monde
+
 CREATE FUNCTION is_valid_timezone(tz TEXT) RETURNS BOOLEAN
 LANGUAGE sql STABLE AS $$
     SELECT EXISTS (SELECT 1 FROM pg_timezone_names WHERE name = tz)
 $$;
 
 -- ---------------------------------------------------------------------
--- Utilisateurs (A)
+-- Utilisateurs
 -- ---------------------------------------------------------------------
 CREATE TABLE users (
     id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -36,7 +35,7 @@ CREATE TABLE users (
 );
 
 -- ---------------------------------------------------------------------
--- Sessions du chatbot (A)
+-- Sessions du chatbot
 -- ---------------------------------------------------------------------
 CREATE TABLE sessions (
     chat_session_id  TEXT PRIMARY KEY,
@@ -46,7 +45,7 @@ CREATE TABLE sessions (
 );
 
 -- ---------------------------------------------------------------------
--- Étape en cours de l'inscription / connexion guidée (A)
+-- Étape en cours de l'inscription / connexion guidée
 -- On n'y stocke jamais le mot de passe.
 -- ---------------------------------------------------------------------
 CREATE TABLE auth_pending (
@@ -58,7 +57,7 @@ CREATE TABLE auth_pending (
 );
 
 -- ---------------------------------------------------------------------
--- Préférences de newsletter (B)
+-- Préférences de newsletter
 -- ---------------------------------------------------------------------
 CREATE TABLE preferences (
     user_id          UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
@@ -71,14 +70,12 @@ CREATE TABLE preferences (
     is_active        BOOLEAN NOT NULL DEFAULT true,
     last_sent_at     TIMESTAMPTZ,
     updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
-    -- ton et format de la newsletter, sources que l'utilisateur ne veut plus
     tone             TEXT NOT NULL DEFAULT 'neutre'
                      CHECK (tone IN ('neutre', 'decontracte', 'formel', 'humoristique')),
     format           TEXT NOT NULL DEFAULT 'resume'
                      CHECK (format IN ('titres', 'resume', 'detaille')),
     excluded_sources TEXT[] NOT NULL DEFAULT '{}'
                      CHECK (cardinality(excluded_sources) <= 10),
-    -- RGPD : date de désinscription, remplie par le trigger plus bas
     unsubscribed_at  TIMESTAMPTZ,
 
     CONSTRAINT preferences_timezone_valid CHECK (is_valid_timezone(timezone)),
@@ -104,7 +101,7 @@ CREATE TRIGGER preferences_unsubscribed_at BEFORE UPDATE OF is_active ON prefere
     FOR EACH ROW EXECUTE FUNCTION set_unsubscribed_at();
 
 -- ---------------------------------------------------------------------
--- Articles collectés (B)
+-- Articles collectés
 -- ---------------------------------------------------------------------
 CREATE TABLE articles (
     id            BIGSERIAL PRIMARY KEY,
@@ -121,8 +118,7 @@ CREATE INDEX idx_articles_fetched_at ON articles (fetched_at);
 CREATE INDEX idx_articles_tags ON articles USING GIN (tags);
 
 -- ---------------------------------------------------------------------
--- Historique des envois (B)
--- Sert à ne pas renvoyer deux fois le même article et au futur feedback.
+-- Historique des envois
 -- ---------------------------------------------------------------------
 CREATE TABLE sent_newsletters (
     id           BIGSERIAL PRIMARY KEY,
@@ -133,8 +129,7 @@ CREATE TABLE sent_newsletters (
 CREATE INDEX idx_sent_user ON sent_newsletters (user_id, sent_at);
 
 -- ---------------------------------------------------------------------
--- Retours des utilisateurs sur leurs newsletters (A)
--- Texte libre : si on le donne à l'IA, c'est une donnée, pas une consigne.
+-- Retours des utilisateurs sur leurs newsletters
 -- ---------------------------------------------------------------------
 CREATE TABLE feedback (
     id         BIGSERIAL PRIMARY KEY,
@@ -145,14 +140,13 @@ CREATE TABLE feedback (
 CREATE INDEX idx_feedback_user ON feedback (user_id, created_at);
 
 -- ---------------------------------------------------------------------
--- Journal de sécurité (A et B)
--- Utile pour l'audit et la démo. On évite d'y stocker des données personnelles en clair (pas de mot de passe, pas de message complet).
+-- Journal de sécurité
 -- ---------------------------------------------------------------------
 CREATE TABLE audit_log (
     id          BIGSERIAL PRIMARY KEY,
-    event       TEXT NOT NULL,          -- 'login_failed', 'login_ok', 'account_locked',
-                                        -- 'injection_suspected', 'account_deleted', ...
-    user_id     UUID,                   -- volontairement sans FK : survit à la suppression
+    event       TEXT NOT NULL,
+
+    user_id     UUID,
     details     JSONB,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -172,7 +166,7 @@ REVOKE UPDATE, DELETE ON audit_log FROM persona_app;
 -- ---------------------------------------------------------------------
 CREATE FUNCTION persona_cleanup() RETURNS void
 LANGUAGE sql SECURITY DEFINER SET search_path = public, pg_temp AS $$
-    -- comptes désabonnés depuis plus de 6 mois : supprimés en entier (CASCADE)
+    -- comptes désabonnés depuis plus de 6 mois
     WITH gone AS (
         DELETE FROM users
         WHERE id IN (SELECT user_id FROM preferences
