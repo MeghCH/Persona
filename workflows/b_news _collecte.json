@@ -1,11 +1,5 @@
 {
-  "updatedAt": "2026-10-27T13:12:02.639Z",
-  "createdAt": "2026-10-27T08:48:23.999Z",
-  "id": "A9xKmMDsv9dQsZpq",
   "name": "[B] News - Collecte",
-  "description": null,
-  "active": false,
-  "isArchived": false,
   "nodes": [
     {
       "parameters": {
@@ -53,53 +47,6 @@
       "id": "406e2af5-dd61-4554-ac93-11ed73f7a1da",
       "name": "Lire les flux",
       "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "id": "13d76090-86da-4872-863a-ecfc5cae86ee",
-              "name": "source",
-              "value": "={{ $('Liste des sources').item.json.source }}",
-              "type": "string"
-            },
-            {
-              "id": "bdf48fef-9cd2-46a4-adb5-4246a284f4cb",
-              "name": "title",
-              "value": "={{ $json.title }}",
-              "type": "string"
-            },
-            {
-              "id": "c3a3ec39-5253-43b4-be8f-89d3f582332e",
-              "name": "url",
-              "value": "={{ $json.link.split('#')[0] }}",
-              "type": "string"
-            },
-            {
-              "id": "7d4e5196-83cb-4eda-8e34-501ada77e354",
-              "name": "content",
-              "value": "={{ $json.contentSnippet }}",
-              "type": "string"
-            },
-            {
-              "id": "d5160eb3-e3e2-4f98-a32b-56be07ac7e1d",
-              "name": "published_at",
-              "value": "={{ $json.isoDate }}",
-              "type": "string"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.5,
-      "position": [
-        656,
-        0
-      ],
-      "id": "67881c76-dcbd-4eb6-96c0-005407ed31d3",
-      "name": "Mettre en forme"
     },
     {
       "parameters": {
@@ -292,6 +239,53 @@
           "name": "postgres (à configurer)"
         }
       }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "13d76090-86da-4872-863a-ecfc5cae86ee",
+              "name": "source",
+              "value": "={{ $('Liste des sources').item.json.source }}",
+              "type": "string"
+            },
+            {
+              "id": "bdf48fef-9cd2-46a4-adb5-4246a284f4cb",
+              "name": "title",
+              "value": "={{ $json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "c3a3ec39-5253-43b4-be8f-89d3f582332e",
+              "name": "url",
+              "value": "={{ $json.link.split('#')[0] }}",
+              "type": "string"
+            },
+            {
+              "id": "7d4e5196-83cb-4eda-8e34-501ada77e354",
+              "name": "content",
+              "value": "={{ $json.contentSnippet }}",
+              "type": "string"
+            },
+            {
+              "id": "d5160eb3-e3e2-4f98-a32b-56be07ac7e1d",
+              "name": "published_at",
+              "value": "={{ $json.isoDate }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        656,
+        0
+      ],
+      "id": "67881c76-dcbd-4eb6-96c0-005407ed31d3",
+      "name": "Mettre en forme + gestion des doublons"
     }
   ],
   "connections": {
@@ -321,18 +315,7 @@
       "main": [
         [
           {
-            "node": "Mettre en forme",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Mettre en forme": {
-      "main": [
-        [
-          {
-            "node": "Articles récents",
+            "node": "Mettre en forme + gestion des doublons",
             "type": "main",
             "index": 0
           }
@@ -438,24 +421,30 @@
           }
         ]
       ]
+    },
+    "Mettre en forme + gestion des doublons": {
+      "main": [
+        [
+          {
+            "node": "Articles récents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
+  "active": true,
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
+  "versionId": "932e5ae0-e261-475d-9c13-b2bbd6a1c4d2",
   "meta": {
-    "templateCredsSetupCompleted": true
+    "templateCredsSetupCompleted": true,
+    "instanceId": "459b493c2f55b9502fee9e7c95d986d0fcdb0ac77db0b81ed8e1520e7b577ded"
   },
   "nodeGroups": [],
-  "versionId": "3039395d-7c4e-4371-837a-e95a0c6b1218",
-  "activeVersionId": null,
-  "versionCounter": 114,
-  "triggerCount": 0,
-  "sourceWorkflowId": null,
-  "tags": [],
-  "versionMetadata": {
-    "name": null,
-    "description": null
-  }
+  "id": "A9xKmMDsv9dQsZpq",
+  "tags": []
 }
