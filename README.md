@@ -129,10 +129,6 @@ Puis ré-associer les credentials dans les nœuds. Après un import, ils s'appel
 - `[B] News - Désinscription` (`workflows/b_news_desinscription.json`) : webhook `/unsubscribe`, Postgres
 - `[Commun] Maintenance RGPD` (`workflows/commun_maintenance_rgpd.json`) : tous les jours à 3 h, Postgres
 
-Les workflows A ont besoin de `db/proposals/03-style-feedback-timezone.sql` (ton, format,
-feedback, inscription guidée…). `scripts/setup.sh` l'applique tout seul. C'est une
-proposition : à valider à deux avant de la mettre dans `02-schema.sql`.
-
 ### `[A] Chat - Entrée`
 
 Le chat se fait depuis la page http://localhost:8090 (fichier `web/index.html`, servi par
