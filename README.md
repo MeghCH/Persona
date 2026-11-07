@@ -100,6 +100,10 @@ python3 scripts/sanitize.py workflows/
 git add workflows && git commit -m "..." && git push
 ```
 
+À chaque PR, la CI de GitHub (`.github/workflows/ci.yml`) relance `sanitize.py` et les tests
+de scénarios (`scripts/test_scenarios.js`). La PR passe en rouge si un workflow n'était pas
+nettoyé, contient un secret, ou si un test échoue.
+
 Pour récupérer le travail de l'autre :
 
 ```bash
