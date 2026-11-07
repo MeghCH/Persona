@@ -8,8 +8,10 @@
 
 const fs = require('fs');
 
-const collecte = JSON.parse(fs.readFileSync('/home/node/exports/b_news _collecte.json', 'utf8'));
-const envoi = JSON.parse(fs.readFileSync('/home/node/exports/b_news_envoi.json', 'utf8'));
+// dossier des workflows : celui du conteneur n8n par défaut, ./workflows dans la CI GitHub
+const dossier = process.env.WORKFLOWS || '/home/node/exports';
+const collecte = JSON.parse(fs.readFileSync(dossier + '/b_news _collecte.json', 'utf8'));
+const envoi = JSON.parse(fs.readFileSync(dossier + '/b_news_envoi.json', 'utf8'));
 
 // Lance le code JavaScript d'un nœud, avec les variables n8n qu'on lui donne ($json, $input, $).
 function lancerNoeud(workflow, nomDuNoeud, variables) {
