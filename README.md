@@ -223,6 +223,28 @@ du lot en cours peuvent être modifiés.
 5. Envoie l'email, l'enregistre dans `sent_newsletters` (avec les articles
    réellement envoyés) et met à jour `last_sent_at`.
 
+### Tests de l'évaluation
+
+```bash
+docker compose exec -T n8n node - < scripts/test_scenarios.js
+```
+
+Chaque test imagine un scénario où quelque chose tourne mal, et vérifie que le système réagit bien :
+
+| Ce qui tourne mal | Ce qu'on attend |
+|---|---|
+| Gemini écrit un résumé vide, trop long ou en anglais | le résumé est rejeté |
+| un article piégé fait écrire du HTML, un lien ou une consigne à Gemini | le résumé est rejeté |
+| l'IA relectrice trouve une erreur (chiffre inventé) | le résumé est rejeté |
+| l'IA relectrice est en panne (quota) | le contrôle automatique continue de marcher |
+| un flux RSS piégé met du `<script>` dans un titre | il est échappé dans l'email |
+| un article a un lien `javascript:` | il est retiré, et l'email ne part pas s'il ne reste rien |
+| l'adresse email cache un `Bcc` | l'email ne part pas |
+| le lien de désinscription manque | l'email ne part pas |
+
+Des cas normaux vérifient aussi qu'un bon résumé est gardé et qu'un email normal part.
+Le détail de chaque scénario est dans [doc/tests-evaluation.md](doc/tests-evaluation.md).
+
 À adapter : l'adresse d'expéditeur dans le nœud `Envoyer la newsletter`, et l'URL
 du lien de désinscription (`http://localhost:5678/...` dans `Construire l'email`)
 si n8n est exposé ailleurs.
