@@ -115,8 +115,8 @@
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        1344,
-        0
+        1792,
+        -96
       ],
       "id": "354b4bca-9d55-446c-9cf4-e17d625ba7b1",
       "name": "Envoyer la newsletter",
@@ -130,20 +130,11 @@
     },
     {
       "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "id": "6f016862-bcdc-4e87-b543-0aca161e2855",
-              "name": "blocs",
-              "value": "={{ $json.articles.map(a => `<p><a href=\"${a.url}\"><b>${a.title}</b></a><br><small>${a.source}</small><br>${a.summary}</p>`).join('') }}",
-              "type": "string"
-            }
-          ]
-        },
-        "options": {}
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Le titre vient du flux RSS et le résumé de l'IA : on les échappe avant de les\n// mettre dans le HTML, et on écarte les articles sans lien http(s) ou sans résumé.\nconst echapper = s => String(s ?? '')\n  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')\n  .replace(/\"/g, '&quot;').replace(/'/g, '&#39;');\nconst lienValide = url => typeof url === 'string' && /^https?:\\/\\/[^\\s\"'<>]+$/i.test(url);\n\nconst articles = ($json.articles || []).filter(a =>\n  lienValide(a.url) && a.title && typeof a.summary === 'string' && a.summary.trim());\n\nconst blocs = articles.map(a =>\n  `<p><a href=\"${echapper(a.url)}\"><b>${echapper(a.title)}</b></a><br>` +\n  `<small>${echapper(a.source)}</small><br>${echapper(a.summary)}</p>`\n).join('');\n\nreturn { json: { articles, blocs } };"
       },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.5,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         896,
         0
@@ -191,17 +182,88 @@
         "operation": "executeQuery",
         "query": "WITH envoi AS (\n  INSERT INTO sent_newsletters (user_id, article_ids)\n  VALUES ($1::uuid, ARRAY(SELECT json_array_elements_text($2::json)::bigint))\n)\nUPDATE preferences\nSET last_sent_at = now()\nWHERE user_id = $1::uuid;",
         "options": {
-          "queryReplacement": "={{ [ $('Utilisateurs à servir').item.json.id, JSON.stringify($('A des articles').item.json.articles.map(a => a.id)) ] }}"
+          "queryReplacement": "={{ [ $('Utilisateurs à servir').item.json.id, JSON.stringify($('Préparer les articles').item.json.articles.map(a => a.id)) ] }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        1568,
-        0
+        2016,
+        -96
       ],
       "id": "10d78ca3-816c-4e88-b13b-c6c6bff03ed6",
       "name": "Enregistrer l'envoi",
+      "credentials": {
+        "postgres": {
+          "id": "NVYHYZPCSYpCPKph",
+          "name": "postgres (à configurer)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Dernier contrôle avant l'envoi : si un point échoue, l'email n'est pas envoyé\n// et le blocage est noté dans audit_log.\nconst { to, subject, html } = $json;\nconst nbArticles = $('Préparer les articles').item.json.articles.length;\nconst token = String($('Utilisateurs à servir').item.json.unsubscribe_token ?? '');\nconst problemes = [];\n\nif (!/^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,}$/.test(to || ''))\n  problemes.push('destinataire invalide');\nif (!subject || /[\\r\\n]/.test(subject)) problemes.push('sujet invalide');\nif (nbArticles === 0) problemes.push('aucun article');\nif (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(token)\n    || !html.includes(`/webhook/unsubscribe?token=${token}\"`))\n  problemes.push('lien de désinscription absent');  // obligatoire (RGPD)\n// le texte est échappé : un vrai « < » ne peut venir que du modèle de l'email\nif (/<\\s*(script|iframe|object|embed|form|style|img|svg)\\b|<[^>]*\\son[a-z]+\\s*=/i.test(html))\n  problemes.push('HTML dangereux');\nif ([...html.matchAll(/href=\"([^\"]*)\"/g)].some(m => !/^https?:\\/\\//i.test(m[1])))\n  problemes.push('lien non http(s)');\nif (html.length > 100000) problemes.push('email trop lourd');\n\nreturn { json: { to, subject, html, valide: problemes.length === 0, problemes, nb_articles: nbArticles } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        0
+      ],
+      "id": "a05dc17f-e296-4ee1-9bf8-6b7c8d9eafb6",
+      "name": "Vérifier l'email"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b16ed280-f3a7-4ff2-acf9-7c8d9eafb0c7",
+              "leftValue": "={{ $json.valide }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1568,
+        0
+      ],
+      "id": "c27fe391-04b8-4003-bd0a-8d9eafb0c1d8",
+      "name": "Email valide ?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO audit_log (event, user_id, details)\nVALUES ('newsletter_blocked', $1::uuid,\n        jsonb_build_object('problemes', $2::jsonb, 'articles', $3::int));",
+        "options": {
+          "queryReplacement": "={{ [ $('Utilisateurs à servir').item.json.id, JSON.stringify($json.problemes), $json.nb_articles ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1792,
+        112
+      ],
+      "id": "d380a4a2-15c9-4114-8e0b-9eafb0c1d2e9",
+      "name": "Journaliser l'envoi bloqué",
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
@@ -270,7 +332,7 @@
       "main": [
         [
           {
-            "node": "Envoyer la newsletter",
+            "node": "Vérifier l'email",
             "type": "main",
             "index": 0
           }
@@ -282,6 +344,35 @@
         [
           {
             "node": "Enregistrer l'envoi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vérifier l'email": {
+      "main": [
+        [
+          {
+            "node": "Email valide ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email valide ?": {
+      "main": [
+        [
+          {
+            "node": "Envoyer la newsletter",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Journaliser l'envoi bloqué",
             "type": "main",
             "index": 0
           }

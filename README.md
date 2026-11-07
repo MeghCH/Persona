@@ -178,7 +178,19 @@ Les protections et les tests sont détaillés dans [doc/audit-securite.md](doc/a
 3. Par lots de 10, Gemini (température 0.2, sortie JSON structurée) donne à chaque
    article 1 à 3 thèmes et un résumé factuel en français (2 phrases max, traduit
    si l'article est en anglais).
-4. Enregistre `tags` et `summary` dans `articles`.
+4. **Contrôle automatique** (`Contrôler les résumés`, sans IA) : rejette un résumé
+   absent, vide, de plus de 500 caractères ou de plus de 3 phrases, pas en français,
+   ou qui contient du HTML, un lien ou des traces d'injection de prompt.
+5. **Relecture par l'IA** (`Évaluer les résumés`, Gemini température 0) : une
+   deuxième requête compare chaque résumé restant au titre et au texte de l'article.
+   Le résumé doit être fidèle (rien d'inventé), en français, neutre, et ne parler que
+   de l'article. Si Gemini ne répond pas (quota), seul le contrôle automatique s'applique.
+6. Enregistre `tags` et `summary` dans `articles`. Un résumé rejeté n'est pas
+   enregistré : l'article garde ses thèmes mais n'a pas de résumé, donc il n'est
+   jamais envoyé. Les rejets sont notés dans `audit_log` (événement `summary_review`,
+   avec l'id de l'article et la raison).
+
+La relecture coûte une requête Gemini de plus par lot de 10 articles.
 
 Thèmes autorisés : `politique`, `international`, `économie`, `société`, `sport`,
 `culture`, `technologie`, `science`, `espace`, `santé`, `environnement`,
@@ -200,9 +212,16 @@ du lot en cours peuvent être modifiés.
    thèmes croisent ses `interests`, qui ont un résumé et ont été collectés dans
    les dernières 24 h.
    Aucun article = aucun email.
-3. Envoie un email HTML (titre cliquable, source, résumé) avec un lien de
-   désinscription personnel.
-4. Enregistre l'envoi dans `sent_newsletters` et met à jour `last_sent_at`.
+3. Construit un email HTML (titre cliquable, source, résumé) avec un lien de
+   désinscription personnel. Le titre, la source et le résumé sont échappés, et
+   les articles dont le lien n'est pas en `http(s)://` sont écartés.
+4. **Vérifie l'email avant l'envoi** (`Vérifier l'email`) : destinataire valide,
+   au moins un article, lien de désinscription présent, aucune balise dangereuse
+   (`<script>`, `onerror=`…) et uniquement des liens `http(s)`. Si un point échoue,
+   l'email n'est pas envoyé et un événement `newsletter_blocked` est ajouté dans
+   `audit_log` avec la liste des problèmes.
+5. Envoie l'email, l'enregistre dans `sent_newsletters` (avec les articles
+   réellement envoyés) et met à jour `last_sent_at`.
 
 À adapter : l'adresse d'expéditeur dans le nœud `Envoyer la newsletter`, et l'URL
 du lien de désinscription (`http://localhost:5678/...` dans `Construire l'email`)
