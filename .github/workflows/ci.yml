@@ -37,6 +37,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # installe node pour ce job
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       - name: Lancer les tests de scénarios
         run: node scripts/test_scenarios.js
         env:
