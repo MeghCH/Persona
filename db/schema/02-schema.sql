@@ -160,13 +160,24 @@ CREATE TABLE IF NOT EXISTS audit_log (
 -- Une ligne par message qui passe par l'IA. Elle sert à refuser les envois
 -- trop rapides ou trop nombreux (voir doc/protection-deni-de-service.md).
 -- On n'y stocke jamais le texte du message.
+-- Quand un compte est supprimé, ses lignes restent jusqu'au nettoyage de nuit (user_id passe
+-- à NULL) : sinon, supprimer son compte remettrait à zéro le comptage de la journée.
+-- connecte garde le fait que le message venait d'un utilisateur connecté, même après la suppression.
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS chat_ai_requests (
     id          BIGSERIAL PRIMARY KEY,
     session_id  TEXT NOT NULL,
-    user_id     UUID REFERENCES users(id) ON DELETE CASCADE,
+    user_id     UUID REFERENCES users(id) ON DELETE SET NULL,
+    connecte    BOOLEAN NOT NULL,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Base créée avec la première version de la table (ON DELETE CASCADE, sans connecte).
+-- Sur une base déjà à jour, ces lignes ne changent rien.
+ALTER TABLE chat_ai_requests ADD COLUMN IF NOT EXISTS connecte BOOLEAN;
+UPDATE chat_ai_requests SET connecte = (user_id IS NOT NULL) WHERE connecte IS NULL;
+ALTER TABLE chat_ai_requests ALTER COLUMN connecte SET NOT NULL;
+ALTER TABLE chat_ai_requests DROP CONSTRAINT IF EXISTS chat_ai_requests_user_id_fkey,
+    ADD CONSTRAINT chat_ai_requests_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS chat_ai_requests_created_at_idx ON chat_ai_requests (created_at);
 CREATE INDEX IF NOT EXISTS chat_ai_requests_session_idx    ON chat_ai_requests (session_id, created_at);
 
@@ -189,12 +200,12 @@ BEGIN
           count(*) FILTER (WHERE r.session_id = p_session AND r.created_at > now() - INTERVAL '1 minute') AS a,
           count(*) FILTER (WHERE r.session_id = p_session) AS b,
           count(*) FILTER (WHERE r.user_id = p_user) AS c,
-          count(*) FILTER (WHERE r.user_id IS NULL) AS d,
+          count(*) FILTER (WHERE NOT r.connecte) AS d,
           count(*) AS e
         FROM chat_ai_requests r
         WHERE r.created_at > now() - INTERVAL '1 day'
     ), nouveau AS (
-        INSERT INTO chat_ai_requests (session_id, user_id) VALUES (p_session, p_user)
+        INSERT INTO chat_ai_requests (session_id, user_id, connecte) VALUES (p_session, p_user, p_user IS NOT NULL)
         RETURNING chat_ai_requests.id
     )
     SELECT nouveau.id, avant.a, avant.b, avant.c, avant.d, avant.e FROM nouveau, avant;
