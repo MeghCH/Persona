@@ -53,7 +53,7 @@
       "id": "449c28ca-f69d-50fb-89bb-1cf295310e19",
       "name": "Agent Persona",
       "retryOnFail": true,
-      "maxTries": 3,
+      "maxTries": 2,
       "waitBetweenTries": 3000
     },
     {
@@ -419,7 +419,8 @@
   },
   "settings": {
     "executionOrder": "v1",
-    "binaryMode": "separate"
+    "binaryMode": "separate",
+    "executionTimeout": 60
   },
   "meta": {
     "templateCredsSetupCompleted": true
