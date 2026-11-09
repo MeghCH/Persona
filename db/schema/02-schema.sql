@@ -1,11 +1,14 @@
 -- =====================================================================
 -- Persona - schéma de la base partagée
+-- Seul fichier SQL du projet. Docker le lance à la création de la base,
+-- et scripts/setup.sh le relance à chaque démarrage pour mettre à jour
+-- une base existante (il ne recrée pas ce qui existe déjà).
 -- =====================================================================
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;  -- hash des mots de passe (bcrypt) + UUID
 
 
-CREATE FUNCTION is_valid_timezone(tz TEXT) RETURNS BOOLEAN
+CREATE OR REPLACE FUNCTION is_valid_timezone(tz TEXT) RETURNS BOOLEAN
 LANGUAGE sql STABLE AS $$
     SELECT EXISTS (SELECT 1 FROM pg_timezone_names WHERE name = tz)
 $$;
@@ -13,7 +16,7 @@ $$;
 -- ---------------------------------------------------------------------
 -- Utilisateurs
 -- ---------------------------------------------------------------------
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email                 TEXT NOT NULL UNIQUE,
     password_hash         TEXT NOT NULL,
@@ -37,7 +40,7 @@ CREATE TABLE users (
 -- ---------------------------------------------------------------------
 -- Sessions du chatbot
 -- ---------------------------------------------------------------------
-CREATE TABLE sessions (
+CREATE TABLE IF NOT EXISTS sessions (
     chat_session_id  TEXT PRIMARY KEY,
     user_id          UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -48,7 +51,7 @@ CREATE TABLE sessions (
 -- Étape en cours de l'inscription / connexion guidée
 -- On n'y stocke jamais le mot de passe.
 -- ---------------------------------------------------------------------
-CREATE TABLE auth_pending (
+CREATE TABLE IF NOT EXISTS auth_pending (
     chat_session_id TEXT PRIMARY KEY,
     step            TEXT NOT NULL CHECK (step IN ('register_email', 'register_consent', 'register_password',
                                                   'login_email', 'login_password')),
@@ -59,7 +62,7 @@ CREATE TABLE auth_pending (
 -- ---------------------------------------------------------------------
 -- Préférences de newsletter
 -- ---------------------------------------------------------------------
-CREATE TABLE preferences (
+CREATE TABLE IF NOT EXISTS preferences (
     user_id          UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     interests        TEXT[] NOT NULL DEFAULT '{}',
     send_hour        SMALLINT NOT NULL DEFAULT 8 CHECK (send_hour BETWEEN 0 AND 23),
@@ -85,7 +88,7 @@ CREATE TABLE preferences (
 
 -- unsubscribed_at se remplit tout seul (lien de l'email ou pause dans le chat)
 -- et se vide si l'utilisateur se réabonne
-CREATE FUNCTION set_unsubscribed_at() RETURNS trigger
+CREATE OR REPLACE FUNCTION set_unsubscribed_at() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
     IF NEW.is_active THEN
@@ -97,13 +100,14 @@ BEGIN
 END
 $$;
 
+DROP TRIGGER IF EXISTS preferences_unsubscribed_at ON preferences;
 CREATE TRIGGER preferences_unsubscribed_at BEFORE UPDATE OF is_active ON preferences
     FOR EACH ROW EXECUTE FUNCTION set_unsubscribed_at();
 
 -- ---------------------------------------------------------------------
 -- Articles collectés
 -- ---------------------------------------------------------------------
-CREATE TABLE articles (
+CREATE TABLE IF NOT EXISTS articles (
     id            BIGSERIAL PRIMARY KEY,
     url           TEXT NOT NULL UNIQUE,
     title         TEXT NOT NULL,
@@ -114,35 +118,35 @@ CREATE TABLE articles (
     published_at  TIMESTAMPTZ,
     fetched_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_articles_fetched_at ON articles (fetched_at);
-CREATE INDEX idx_articles_tags ON articles USING GIN (tags);
+CREATE INDEX IF NOT EXISTS idx_articles_fetched_at ON articles (fetched_at);
+CREATE INDEX IF NOT EXISTS idx_articles_tags ON articles USING GIN (tags);
 
 -- ---------------------------------------------------------------------
 -- Historique des envois
 -- ---------------------------------------------------------------------
-CREATE TABLE sent_newsletters (
+CREATE TABLE IF NOT EXISTS sent_newsletters (
     id           BIGSERIAL PRIMARY KEY,
     user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     article_ids  BIGINT[] NOT NULL,
     sent_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_sent_user ON sent_newsletters (user_id, sent_at);
+CREATE INDEX IF NOT EXISTS idx_sent_user ON sent_newsletters (user_id, sent_at);
 
 -- ---------------------------------------------------------------------
 -- Retours des utilisateurs sur leurs newsletters
 -- ---------------------------------------------------------------------
-CREATE TABLE feedback (
+CREATE TABLE IF NOT EXISTS feedback (
     id         BIGSERIAL PRIMARY KEY,
     user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     message    TEXT NOT NULL CHECK (length(message) BETWEEN 1 AND 1000),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_feedback_user ON feedback (user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_feedback_user ON feedback (user_id, created_at);
 
 -- ---------------------------------------------------------------------
 -- Journal de sécurité
 -- ---------------------------------------------------------------------
-CREATE TABLE audit_log (
+CREATE TABLE IF NOT EXISTS audit_log (
     id          BIGSERIAL PRIMARY KEY,
     event       TEXT NOT NULL,
 
@@ -150,6 +154,52 @@ CREATE TABLE audit_log (
     details     JSONB,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- ---------------------------------------------------------------------
+-- Messages envoyés à l'IA (Gemini)
+-- Une ligne par message qui passe par l'IA. Elle sert à refuser les envois
+-- trop rapides ou trop nombreux (voir doc/protection-deni-de-service.md).
+-- On n'y stocke jamais le texte du message.
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS chat_ai_requests (
+    id          BIGSERIAL PRIMARY KEY,
+    session_id  TEXT NOT NULL,
+    user_id     UUID REFERENCES users(id) ON DELETE CASCADE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS chat_ai_requests_created_at_idx ON chat_ai_requests (created_at);
+CREATE INDEX IF NOT EXISTS chat_ai_requests_session_idx    ON chat_ai_requests (session_id, created_at);
+
+-- Compte les messages déjà envoyés à l'IA et réserve la place du nouveau, en une seule fois.
+-- Le verrou fait passer les messages un par un : sans lui, dix messages envoyés au même
+-- moment lisent tous le même comptage et passent tous la limite.
+-- Les comptages rendus ne comptent pas le nouveau message. S'il est refusé, le workflow
+-- supprime sa réservation (reservation_id).
+CREATE OR REPLACE FUNCTION reserver_appel_ia(p_session TEXT, p_user UUID)
+RETURNS TABLE (reservation_id BIGINT, session_minute BIGINT, session_jour BIGINT,
+               user_jour BIGINT, anonymes_jour BIGINT, total_jour BIGINT)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+#variable_conflict use_column
+BEGIN
+    PERFORM pg_advisory_xact_lock(hashtext('chat_ai_requests'));
+
+    RETURN QUERY
+    WITH avant AS (
+        SELECT
+          count(*) FILTER (WHERE r.session_id = p_session AND r.created_at > now() - INTERVAL '1 minute') AS a,
+          count(*) FILTER (WHERE r.session_id = p_session) AS b,
+          count(*) FILTER (WHERE r.user_id = p_user) AS c,
+          count(*) FILTER (WHERE r.user_id IS NULL) AS d,
+          count(*) AS e
+        FROM chat_ai_requests r
+        WHERE r.created_at > now() - INTERVAL '1 day'
+    ), nouveau AS (
+        INSERT INTO chat_ai_requests (session_id, user_id) VALUES (p_session, p_user)
+        RETURNING chat_ai_requests.id
+    )
+    SELECT nouveau.id, avant.a, avant.b, avant.c, avant.d, avant.e FROM nouveau, avant;
+END
+$$;
 
 -- ---------------------------------------------------------------------
 -- Droits du compte applicatif utilisé par n8n
@@ -164,7 +214,7 @@ REVOKE UPDATE, DELETE ON audit_log FROM persona_app;
 -- ---------------------------------------------------------------------
 -- Rétention RGPD : appelée chaque nuit par le workflow [Commun] Maintenance RGPD
 -- ---------------------------------------------------------------------
-CREATE FUNCTION persona_cleanup() RETURNS void
+CREATE OR REPLACE FUNCTION persona_cleanup() RETURNS void
 LANGUAGE sql SECURITY DEFINER SET search_path = public, pg_temp AS $$
     -- comptes désabonnés depuis plus de 6 mois
     WITH gone AS (
@@ -182,5 +232,7 @@ LANGUAGE sql SECURITY DEFINER SET search_path = public, pg_temp AS $$
     DELETE FROM audit_log        WHERE created_at < now() - INTERVAL '1 year';
     DELETE FROM feedback         WHERE created_at < now() - INTERVAL '1 year';
     DELETE FROM auth_pending     WHERE created_at < now() - INTERVAL '1 hour';
+    DELETE FROM chat_ai_requests WHERE created_at < now() - INTERVAL '2 days';
 $$;
 GRANT EXECUTE ON FUNCTION persona_cleanup() TO persona_app;
+GRANT EXECUTE ON FUNCTION reserver_appel_ia(TEXT, UUID) TO persona_app;
