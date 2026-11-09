@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Lance Persona (conteneurs, import des workflows).
-# Le schéma de la base est créé par Docker au premier démarrage (db/schema/02-schema.sql).
+# Lance Persona (conteneurs, mise à jour de la base, import des workflows).
 # On peut le relancer, il saute ce qui est déjà fait.
 set -e
 cd "$(dirname "$0")/.."
@@ -18,6 +17,10 @@ $DC up -d
 echo "Attente de la base et de n8n..."
 until $DC exec -T postgres sh -c 'pg_isready -q -U "$POSTGRES_USER" -d persona'; do sleep 2; done
 until curl -sf http://localhost:5678/healthz >/dev/null; do sleep 2; done
+
+echo "Mise à jour de la base..."
+$DC exec -T -e PGOPTIONS='-c client_min_messages=warning' postgres \
+  sh -c 'psql -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d persona' < db/schema/02-schema.sql
 
 # réimporter désactive les workflows, donc seulement s'ils n'y sont pas
 if ! $DC exec -T n8n n8n list:workflow 2>/dev/null | grep -q PersonaChatEntr1; then

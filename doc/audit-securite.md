@@ -131,7 +131,9 @@ Nos conseils à B :
   grave : même sans filtre, l'IA ne peut toucher qu'au compte connecté.
 - On peut changer d'email sans confirmer la nouvelle adresse. Il faudrait envoyer un lien de
   confirmation.
-- Rien ne limite le nombre de messages par personne. Le blocage après 5 erreurs limite déjà
+- Le nombre de messages envoyés à l'IA est maintenant limité (voir
+  [protection-deni-de-service.md](protection-deni-de-service.md)). Il n'y a toujours pas de limite
+  par adresse IP, ni sur le nombre d'inscriptions. Le blocage après 5 erreurs limite déjà
   l'essai de mots de passe.
 - Tout passe en HTTP. Il faudra du HTTPS dès que le projet sera en ligne, car les mots de passe
   passent par le chat.

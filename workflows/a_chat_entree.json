@@ -1501,6 +1501,271 @@
       ],
       "id": "1e629666-2f71-5d6a-91bd-baa698be1488",
       "name": "Formater la réponse"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ce message va-t-il coûter un appel à l'IA ? Si oui, il passe d'abord par la limite.\n// - « chat » (utilisateur connecté) : l'agent sera appelé, toujours.\n// - « anonymous » : l'agent ne sera jamais appelé, mais on peut demander à l'IA de comprendre la phrase.\n// On n'interprète que les phrases courtes : une vraie demande (« je veux m'inscrire ») tient en peu de mots.\n// Pendant l'inscription ou la connexion guidée (action = étape), rien ne part vers l'IA :\n// le mot de passe ne doit jamais lui arriver.\nconst etape = $input.first().json;\nconst message = $('Analyser le message').first().json.message || '';\nconst court = message.length > 0 && message.length <= 200;\nconst interpreter = (etape.action === 'chat' || etape.action === 'anonymous') && court;\nconst limiter = etape.action === 'chat' || interpreter;\nreturn [{ json: { ...etape, interpreter, limiter } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        2680
+      ],
+      "id": "1bc67943-7680-517b-9005-8673f1b2f601",
+      "name": "Faut-il limiter ?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "6225bdaa-e693-5b18-bed7-c3ff78903b2e",
+              "leftValue": "={{ $json.limiter ? 'oui' : 'non' }}",
+              "rightValue": "oui",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1360,
+        2680
+      ],
+      "id": "a436ec47-4604-538f-8b61-0b2526518bc4",
+      "name": "Message pour l'IA ?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT reservation_id, session_minute, session_jour, user_jour, anonymes_jour, total_jour\nFROM reserver_appel_ia($1::text, $2::uuid);",
+        "options": {
+          "queryReplacement": "={{ [ $('Analyser le message').first().json.sessionId, $('Faut-il limiter ?').first().json.user_id ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1600,
+        2680
+      ],
+      "id": "d5447b2a-d986-5b85-b271-7417a10a73cd",
+      "name": "Compter les appels IA",
+      "credentials": {
+        "postgres": {
+          "id": "NVYHYZPCSYpCPKph",
+          "name": "postgres (à configurer)"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Limites de messages qui passent par l'IA (une ligne dans chat_ai_requests par message).\n// 1 message peut coûter jusqu'à 2 appels Gemini (comprendre la phrase, puis l'agent) :\n// on garde donc une marge sous le quota du jour.\nconst LIMITES = {\n  parMinute: 6,            // une session\n  parJourSession: 100,     // une session\n  parJourCompte: 200,      // un compte, toutes ses sessions\n  parJourAnonymes: 150,    // toutes les sessions non connectées ensemble\n  parJourTotal: 600,       // tout le monde\n};\n\nconst c = $input.first().json;\nconst n = (valeur) => Number(valeur) || 0;\nconst connecte = !!$('Faut-il limiter ?').first().json.user_id;\n\n// Les anonymes ont une petite part du total : quelqu'un qui change d'identifiant de session\n// ne peut pas épuiser le quota des utilisateurs connectés.\nlet raison = '';\nif (n(c.session_minute) >= LIMITES.parMinute) raison = 'trop_vite';\nelse if (n(c.session_jour) >= LIMITES.parJourSession) raison = 'limite_session';\nelse if (connecte && n(c.user_jour) >= LIMITES.parJourCompte) raison = 'limite_compte';\nelse if (!connecte && n(c.anonymes_jour) >= LIMITES.parJourAnonymes) raison = 'limite_anonymes';\nelse if (n(c.total_jour) >= LIMITES.parJourTotal) raison = 'limite_totale';\n\nconst MESSAGES = {\n  trop_vite: 'Vous écrivez très vite : attendez quelques secondes puis réessayez.',\n  limite_session: \"Vous avez atteint la limite de messages pour aujourd'hui. Revenez demain.\",\n  limite_compte: \"Vous avez atteint la limite de messages pour aujourd'hui. Revenez demain.\",\n  limite_anonymes: 'Le service reçoit beaucoup de demandes en ce moment. Réessayez un peu plus tard.',\n  limite_totale: 'Le service reçoit beaucoup de demandes en ce moment. Réessayez un peu plus tard.',\n};\nreturn [{ json: { autorise: raison === '', raison, message: MESSAGES[raison] || '' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1840,
+        2680
+      ],
+      "id": "ce9448eb-ed10-5caf-b1df-1517a733457a",
+      "name": "Contrôler le débit"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "21a04b57-da71-5640-91f9-941a5654f67f",
+              "leftValue": "={{ $json.autorise ? 'oui' : 'non' }}",
+              "rightValue": "oui",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2080,
+        2680
+      ],
+      "id": "c783a866-c6ad-5332-b791-f2815964bbfd",
+      "name": "Débit autorisé ?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7c4f4d40-d08a-5c4d-8dfa-8f002ad88f61",
+              "leftValue": "={{ $('Faut-il limiter ?').first().json.interpreter ? 'oui' : 'non' }}",
+              "rightValue": "oui",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2560,
+        2560
+      ],
+      "id": "4e5b37b6-2ef3-5da2-a00b-b2893a6ac09b",
+      "name": "Interpréter la phrase ?"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "PersonaChatIntn1",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "message": "={{ $('Analyser le message').first().json.message }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        2800,
+        2500
+      ],
+      "id": "f0f19738-fd86-54c2-aefe-10da39613fff",
+      "name": "Interpréter la demande",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// L'IA ne fait que classer la phrase dans une liste fermée. C'est ce code qui décide si l'action est permise.\nconst etape = $('Faut-il limiter ?').first().json;\nconst connecte = !!etape.user_id;\nconst reponse = $input.first().json;\nconst intention = typeof reponse.intention === 'string' ? reponse.intention : 'aucune';\n\n// intention -> action qui existe déjà dans le workflow, et qui a le droit de la demander\n// (connecte : true = utilisateur connecté seulement, false = non connecté seulement, null = tout le monde)\nconst ACTIONS = {\n  inscription: { action: 'register_start', connecte: false },\n  connexion: { action: 'login_start', connecte: false },\n  annuler: { action: 'cancel', connecte: false },\n  confidentialite: { action: 'privacy', connecte: null },\n  aide: { action: 'help', connecte: null },\n  deconnexion: { action: 'logout', connecte: true },\n  mes_donnees: { action: 'export', connecte: true },\n  // seulement la demande : le compte n'est supprimé que si l'utilisateur tape exactement « confirmer suppression »\n  supprimer_compte: { action: 'delete_request', connecte: true },\n};\n\nlet action = etape.action;\nif (Object.hasOwn(ACTIONS, intention)) {\n  const voulue = ACTIONS[intention];\n  if (voulue.connecte === null || voulue.connecte === connecte) action = voulue.action;\n}\nreturn [{ json: { action, user_id: etape.user_id, pending_email: etape.pending_email } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3040,
+        2500
+      ],
+      "id": "531d013e-e637-570a-a08c-a2cdf7c2cd11",
+      "name": "Appliquer l'intention"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ce message n'est pas interprété par l'IA : l'action reste celle décidée avant la limite.\nconst etape = $('Faut-il limiter ?').first().json;\nreturn [{ json: { action: etape.action, user_id: etape.user_id, pending_email: etape.pending_email } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2800,
+        2640
+      ],
+      "id": "57789d74-7224-5122-9ef7-3bab2f0082a2",
+      "name": "Garder l'action"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH annule AS (\n  DELETE FROM chat_ai_requests WHERE id = $3::bigint\n), l AS (\n  INSERT INTO audit_log (event, user_id, details)\n  SELECT 'rate_limited', $1::uuid, jsonb_build_object('raison', $2::text)\n  WHERE NOT EXISTS (\n    SELECT 1 FROM audit_log\n    WHERE event = 'rate_limited' AND details->>'raison' = $2::text\n      AND created_at > now() - INTERVAL '1 minute'\n  )\n)\nSELECT 'done' AS status;",
+        "options": {
+          "queryReplacement": "={{ [ $('Faut-il limiter ?').first().json.user_id, $('Contrôler le débit').first().json.raison, $('Compter les appels IA').first().json.reservation_id ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        2320,
+        2820
+      ],
+      "id": "d50d4e2d-df92-5dad-a946-6bd8478fa3de",
+      "name": "Journaliser la limite",
+      "credentials": {
+        "postgres": {
+          "id": "NVYHYZPCSYpCPKph",
+          "name": "postgres (à configurer)"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "345a5bd1-6136-5be7-9a9d-ce7329372967",
+              "name": "output",
+              "value": "={{ $('Contrôler le débit').first().json.message }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        2560,
+        2820
+      ],
+      "id": "7ea7fa43-bd09-506a-ba62-1480e9126a00",
+      "name": "Répondre trop de messages"
     }
   ],
   "connections": {
@@ -1628,7 +1893,7 @@
       "main": [
         [
           {
-            "node": "Choisir l'action connectée",
+            "node": "Faut-il limiter ?",
             "type": "main",
             "index": 0
           }
@@ -2109,6 +2374,148 @@
           }
         ]
       ]
+    },
+    "Faut-il limiter ?": {
+      "main": [
+        [
+          {
+            "node": "Message pour l'IA ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message pour l'IA ?": {
+      "main": [
+        [
+          {
+            "node": "Compter les appels IA",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Choisir l'action connectée",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compter les appels IA": {
+      "main": [
+        [
+          {
+            "node": "Contrôler le débit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contrôler le débit": {
+      "main": [
+        [
+          {
+            "node": "Débit autorisé ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Débit autorisé ?": {
+      "main": [
+        [
+          {
+            "node": "Interpréter la phrase ?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Journaliser la limite",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Interpréter la phrase ?": {
+      "main": [
+        [
+          {
+            "node": "Interpréter la demande",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Garder l'action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Garder l'action": {
+      "main": [
+        [
+          {
+            "node": "Choisir l'action connectée",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Interpréter la demande": {
+      "main": [
+        [
+          {
+            "node": "Appliquer l'intention",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Appliquer l'intention": {
+      "main": [
+        [
+          {
+            "node": "Choisir l'action connectée",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Journaliser la limite": {
+      "main": [
+        [
+          {
+            "node": "Répondre trop de messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Répondre trop de messages": {
+      "main": [
+        [
+          {
+            "node": "Formater la réponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -2117,7 +2524,8 @@
     "saveDataSuccessExecution": "none",
     "saveDataErrorExecution": "none",
     "saveManualExecutions": false,
-    "saveExecutionProgress": false
+    "saveExecutionProgress": false,
+    "executionTimeout": 60
   },
   "meta": {
     "templateCredsSetupCompleted": true

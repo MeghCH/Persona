@@ -38,8 +38,11 @@ openssl rand -hex 32 # à coller dans N8N_ENCRYPTION_KEY
 docker compose up -d
 ```
 
-Le schéma de la base est créé **au premier démarrage uniquement**. Si on modifie
-`db/schema/02-schema.sql`, il faut repartir d'une base vide :
+Le schéma de la base est dans un seul fichier, `db/schema/02-schema.sql`. Docker le lance à
+la création de la base, et `bash scripts/setup.sh` le relance à chaque démarrage : une base
+existante reçoit les nouvelles tables sans perdre ses données.
+
+Pour repartir d'une base vide :
 
 ```bash
 docker compose down -v # efface toutes les données locales
@@ -65,6 +68,7 @@ requête, il ne peut pas supprimer de tables.
 
 - `[A] Chat - Entrée` : Chat Trigger + authentification
 - `[A] Chat - Agent` : agent IA et ses outils
+- `[A] Chat - Intention` : comprend les phrases libres (Gemini, sans outil)
 - `[B] News - Collecte` : récupération des sources
 - `[B] News - Envoi` : sélection + newsletter planifiée
 - `[B] News - Désinscription` : lien de désinscription en un clic (webhook)
@@ -128,6 +132,7 @@ Puis ré-associer les credentials dans les nœuds. Après un import, ils s'appel
 
 - `[A] Chat - Entrée` (`workflows/a_chat_entree.json`) : Chat Trigger, Postgres
 - `[A] Chat - Agent` (`workflows/a_chat_agent.json`) : appelé par `Chat - Entrée`, Postgres + Gemini
+- `[A] Chat - Intention` (`workflows/a_chat_intention.json`) : appelé par `Chat - Entrée`, Gemini
 - `[B] News - Collecte` (`workflows/b_news_collecte.json`) : toutes les heures, Postgres + Gemini
 - `[B] News - Envoi` (`workflows/b_news_envoi.json`) : toutes les heures à h00, Postgres + SMTP
 - `[B] News - Désinscription` (`workflows/b_news_desinscription.json`) : webhook `/unsubscribe`, Postgres
@@ -154,6 +159,16 @@ Ce qu'on peut écrire au chatbot :
 On peut aussi s'inscrire ou se connecter en une ligne :
 `inscription EMAIL MOT_DE_PASSE j'accepte` et `connexion EMAIL MOT_DE_PASSE`.
 
+On peut aussi écrire une phrase normale, comme « je voudrais créer un compte » ou « comment je
+récupère mes données ? » : `[A] Chat - Intention` comprend ce qu'on veut et le chatbot fait la même
+chose que pour la commande. Pour supprimer son compte, il faut dans tous les cas taper exactement
+`confirmer suppression`.
+
+Les messages qui passent par l'IA sont limités : 6 par minute et par session, puis des limites
+par jour (par session, par compte, pour les non connectés ensemble, et en tout). Les commandes
+exactes ne sont pas limitées. Détails dans
+[doc/protection-deni-de-service.md](doc/protection-deni-de-service.md).
+
 Tout ce qui touche à la connexion est fait en SQL, sans l'IA. Le mot de passe est haché
 avec bcrypt, il fait au moins 12 caractères, et 5 erreurs bloquent le compte 15 minutes.
 Une session dure 2 h sans activité (8 h maximum). Sur la page, le mot de passe est masqué
@@ -161,6 +176,15 @@ quand on le tape et affiché `••••••••` dans la conversation.
 
 Ce workflow n'enregistre pas ses exécutions, parce que les messages contiennent des mots
 de passe. Pour déboguer, on peut réactiver la sauvegarde dans les _Settings_ du workflow.
+
+### `[A] Chat - Intention`
+
+Appelé par `[A] Chat - Entrée` pour les phrases courtes (200 caractères ou moins), connecté ou non,
+quand elles ne sont pas une commande exacte. Gemini classe la phrase dans une liste fermée (`inscription`, `connexion`,
+`deconnexion`, `mes_donnees`, `supprimer_compte`, `confidentialite`, `aide`, `annuler`, `aucune`)
+et ne fait rien d'autre. Il n'a aucun outil et il ne voit jamais un mot de passe.
+
+Credential à choisir à la main après l'import : `LLM Persona` dans le nœud `Modèle Gemini`.
 
 ### `[A] Chat - Agent`
 
