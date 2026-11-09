@@ -181,8 +181,11 @@ de passe. Pour déboguer, on peut réactiver la sauvegarde dans les _Settings_ d
 
 Appelé par `[A] Chat - Entrée` pour les phrases courtes (200 caractères ou moins), connecté ou non,
 quand elles ne sont pas une commande exacte. Gemini classe la phrase dans une liste fermée (`inscription`, `connexion`,
-`deconnexion`, `mes_donnees`, `supprimer_compte`, `confidentialite`, `aide`, `annuler`, `aucune`)
-et ne fait rien d'autre. Il n'a aucun outil et il ne voit jamais un mot de passe.
+`deconnexion`, `mes_donnees`, `supprimer_compte`, `confidentialite`, `aide`, `annuler`, `aucune`),
+et écrit une réponse courte et naturelle (sans lien). Le chatbot l'affiche à la place de sa phrase
+habituelle quand on n'est pas connecté ou qu'on demande de l'aide. Gemini n'a aucun outil et ne voit
+jamais un mot de passe. Les étapes sensibles (inscription, mot de passe, suppression, politique de
+confidentialité) gardent leurs phrases fixes. Si Gemini ne répond pas, le chatbot garde sa phrase habituelle.
 
 Credential à choisir à la main après l'import : `LLM Persona` dans le nœud `Modèle Gemini`.
 

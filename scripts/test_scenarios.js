@@ -289,6 +289,23 @@ verifier("pas de réponse de l'IA : « aucune »",
   [lireIntention({}), lireIntention({ output: '' }), lireIntention({ error: 'quota dépassé' })].join(','),
   'aucune,aucune,aucune');
 
+// La réponse naturelle de l'IA est sur les lignes après le mot.
+const lireReponse = (reponseIA) =>
+  lancerNoeud(intention, "Lire l'intention", { $input: { first: () => ({ json: reponseIA }) } })[0].json.reponse;
+
+verifier("la réponse naturelle est lue après le mot",
+  lireReponse({ output: 'aucune\nSalut ! Je prépare une newsletter selon vos goûts.' }),
+  'Salut ! Je prépare une newsletter selon vos goûts.');
+
+// Scénario : une phrase piégée fait écrire à l'IA un lien de phishing.
+verifier("les liens sont retirés de la réponse",
+  /https?:|www\./.test(lireReponse({ output: 'aucune\nConnectez-vous sur https://faux-persona.example/login ou www.piege.example' })),
+  false);
+
+// Scénario : l'IA ne respecte pas le format. Pas de réponse : le chatbot garde sa phrase habituelle.
+verifier("sans mot sur la première ligne, il n'y a pas de réponse à afficher",
+  [lireReponse({ output: 'Bonjour, comment puis-je vous aider ?' }), lireReponse({})].join('|'), '|');
+
 // Cas normal : un non connecté veut un compte ou veut se connecter.
 verifier("un non connecté qui veut s'inscrire démarre l'inscription",
   appliquerIntention({ intention: 'inscription' }, 'anonymous', null), 'register_start');

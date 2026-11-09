@@ -711,20 +711,10 @@
     },
     {
       "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "id": "d56d3661-63d4-5198-b07b-3a35fe1ad79c",
-              "name": "output",
-              "value": "=Vous n'êtes pas connecté. Tapez « connexion » pour vous connecter, ou « inscription » pour créer un compte.",
-              "type": "string"
-            }
-          ]
-        },
-        "options": {}
+        "jsCode": "// la réponse naturelle de l'IA si elle a été demandée, sinon la phrase habituelle\nlet reponse = '';\ntry {\n  reponse = $(\"Appliquer l'intention\").first().json.reponse_ia || '';\n} catch (e) {}\nreturn [{ json: { output: reponse || \"Vous n'êtes pas connecté. Tapez « connexion » pour vous connecter, ou « inscription » pour créer un compte.\" } }];"
       },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.5,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         1280,
         480
@@ -1310,20 +1300,10 @@
     },
     {
       "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "id": "98256344-a706-57a6-8566-fe3c3a8b264d",
-              "name": "output",
-              "value": "=Je peux modifier vos centres d'intérêt, les jours/heure/fuseau d'envoi, votre email, le ton et le format, le nombre d'articles, mettre la newsletter en pause, exclure une source ou enregistrer un feedback. Commandes : « mes données » (export), « supprimer mon compte », « deconnexion ».",
-              "type": "string"
-            }
-          ]
-        },
-        "options": {}
+        "jsCode": "// la réponse naturelle de l'IA si elle a été demandée, sinon la phrase habituelle\nlet reponse = '';\ntry {\n  reponse = $(\"Appliquer l'intention\").first().json.reponse_ia || '';\n} catch (e) {}\nreturn [{ json: { output: reponse || \"Je peux modifier vos centres d'intérêt, les jours/heure/fuseau d'envoi, votre email, le ton et le format, le nombre d'articles, mettre la newsletter en pause, exclure une source ou enregistrer un feedback. Commandes : « mes données » (export), « supprimer mon compte », « deconnexion ».\" } }];"
       },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.5,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         1280,
         1080
@@ -1661,13 +1641,24 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "message": "={{ $('Analyser le message').first().json.message }}"
+            "message": "={{ $('Analyser le message').first().json.message }}",
+            "connecte": "={{ $('Faut-il limiter ?').first().json.user_id ? 'oui' : 'non' }}"
           },
           "matchingColumns": [],
           "schema": [
             {
               "id": "message",
               "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "connecte",
+              "displayName": "connecte",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -1696,7 +1687,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// L'IA ne fait que classer la phrase dans une liste fermée. C'est ce code qui décide si l'action est permise.\nconst etape = $('Faut-il limiter ?').first().json;\nconst connecte = !!etape.user_id;\nconst reponse = $input.first().json;\nconst intention = typeof reponse.intention === 'string' ? reponse.intention : 'aucune';\n\n// intention -> action qui existe déjà dans le workflow, et qui a le droit de la demander\n// (connecte : true = utilisateur connecté seulement, false = non connecté seulement, null = tout le monde)\nconst ACTIONS = {\n  inscription: { action: 'register_start', connecte: false },\n  connexion: { action: 'login_start', connecte: false },\n  annuler: { action: 'cancel', connecte: false },\n  confidentialite: { action: 'privacy', connecte: null },\n  aide: { action: 'help', connecte: null },\n  deconnexion: { action: 'logout', connecte: true },\n  mes_donnees: { action: 'export', connecte: true },\n  // seulement la demande : le compte n'est supprimé que si l'utilisateur tape exactement « confirmer suppression »\n  supprimer_compte: { action: 'delete_request', connecte: true },\n};\n\nlet action = etape.action;\nif (Object.hasOwn(ACTIONS, intention)) {\n  const voulue = ACTIONS[intention];\n  if (voulue.connecte === null || voulue.connecte === connecte) action = voulue.action;\n}\nreturn [{ json: { action, user_id: etape.user_id, pending_email: etape.pending_email } }];"
+        "jsCode": "// L'IA ne fait que classer la phrase dans une liste fermée. C'est ce code qui décide si l'action est permise.\nconst etape = $('Faut-il limiter ?').first().json;\nconst connecte = !!etape.user_id;\nconst reponse = $input.first().json;\nconst intention = typeof reponse.intention === 'string' ? reponse.intention : 'aucune';\n\n// intention -> action qui existe déjà dans le workflow, et qui a le droit de la demander\n// (connecte : true = utilisateur connecté seulement, false = non connecté seulement, null = tout le monde)\nconst ACTIONS = {\n  inscription: { action: 'register_start', connecte: false },\n  connexion: { action: 'login_start', connecte: false },\n  annuler: { action: 'cancel', connecte: false },\n  confidentialite: { action: 'privacy', connecte: null },\n  aide: { action: 'help', connecte: null },\n  deconnexion: { action: 'logout', connecte: true },\n  mes_donnees: { action: 'export', connecte: true },\n  // seulement la demande : le compte n'est supprimé que si l'utilisateur tape exactement « confirmer suppression »\n  supprimer_compte: { action: 'delete_request', connecte: true },\n};\n\nlet action = etape.action;\nif (Object.hasOwn(ACTIONS, intention)) {\n  const voulue = ACTIONS[intention];\n  if (voulue.connecte === null || voulue.connecte === connecte) action = voulue.action;\n}\nconst reponse_ia = typeof reponse.reponse === 'string' ? reponse.reponse : '';\nreturn [{ json: { action, user_id: etape.user_id, pending_email: etape.pending_email, reponse_ia } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
