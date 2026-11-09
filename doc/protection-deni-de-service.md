@@ -81,7 +81,7 @@ Ce qui reste protégé :
 docker compose exec -T n8n node - < scripts/test_scenarios.js
 ```
 
-33 tests ajoutés (49 en tout, tous passent). Ils lancent le vrai code des nœuds :
+36 tests ajoutés (52 en tout, tous passent). Ils lancent le vrai code des nœuds :
 
 - quels messages partent vers l'IA (et le mot de passe n'y va jamais)
 - chaque limite, et le cas où les non connectés ont tout utilisé mais un connecté passe encore
@@ -94,11 +94,29 @@ docker compose exec -T n8n node - < scripts/test_scenarios.js
 La table `chat_ai_requests` est dans `db/schema/02-schema.sql`. Une base déjà créée la reçoit
 au prochain `bash scripts/setup.sh`, sans rien effacer.
 
-Le nettoyage de nuit (`persona_cleanup()`) efface ces lignes au bout de 2 jours. Elles sont
-aussi supprimées avec le compte (`ON DELETE CASCADE`).
+Le nettoyage de nuit (`persona_cleanup()`) efface ces lignes au bout de 2 jours. Quand un compte
+est supprimé, ses lignes restent jusque-là, mais elles ne sont plus liées à lui (`user_id` passe à
+`NULL`, `ON DELETE SET NULL`). Sinon, quelqu'un pourrait s'inscrire, envoyer ses 200 messages,
+supprimer son compte et recommencer : ses messages ne compteraient plus dans la limite du jour.
+La colonne `connecte` garde le fait que le message venait d'un utilisateur connecté, pour qu'il ne
+soit pas compté avec les non connectés.
 
-Ensuite, importer le nouveau workflow comme les autres (`bash scripts/setup.sh`), choisir le
-credential `LLM Persona` dans le nœud `Modèle Gemini` de `[A] Chat - Intention`, et l'activer.
+### Mettre à jour une installation existante
+
+`bash scripts/setup.sh` met à jour la base, mais il n'importe les workflows que s'ils n'ont jamais
+été importés. Sur une installation existante, il ne remplace pas `[A] Chat - Entrée` et n'ajoute
+pas `[A] Chat - Intention`. Il faut le faire à la main, dans cet ordre :
+
+1. `bash scripts/setup.sh`, pour la base. À faire **avant** l'import : le nouveau
+   `[A] Chat - Entrée` appelle `reserver_appel_ia`, et sans elle tous les messages qui passent par
+   l'IA échouent.
+2. Importer les workflows :
+   ```bash
+   docker compose exec n8n n8n import:workflow --separate --input=/home/node/exports
+   ```
+3. Ré-associer les credentials comme après chaque import (voir le README), dont `LLM Persona`
+   dans le nœud `Modèle Gemini` de `[A] Chat - Intention`, puis réactiver les workflows : un
+   import les désactive.
 
 ## Ce qui n'est pas couvert
 
