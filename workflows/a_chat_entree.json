@@ -30,7 +30,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const input = $input.first().json;\nconst out = { route: 'error', cmd: 'error', sessionId: '', message: '', raw: '', exact: '', email: '', password: '', error: '' };\nconst fail = (msg) => {\n  // on vide le mot de passe et le texte en cas d'erreur\n  Object.assign(out, { route: 'error', cmd: 'error', error: msg, password: '', message: '', raw: '' });\n  return [{ json: out }];\n};\n\n// sessionId trop court = trop facile à deviner\nconst sessionId = typeof input.sessionId === 'string' ? input.sessionId : '';\nif (!/^[A-Za-z0-9_-]{32,64}$/.test(sessionId)) {\n  return fail('Session invalide : rechargez la page du chat.');\n}\nout.sessionId = sessionId;\n\nlet text = typeof input.chatInput === 'string' ? input.chatInput : '';\ntext = text.normalize('NFKC')\n  .replace(/[\\u200b-\\u200f\\u202a-\\u202e\\u2060-\\u2064\\ufeff\\u00ad]/g, '')  // caract\\u00e8res invisibles\n  .replace(/[\\u0000-\\u001f\\u007f\\u2028\\u2029]/g, ' ')\n  .replace(/\\u2019/g, \"'\")\n  .trim();\nif (!text) return fail('Message vide.');\nif (text.length > 1000) return fail('Message trop long (1000 caractères maximum).');\n\nconst strip = (s) => s.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');\nconst EMAIL_RE = /^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,}$/;\nconst bytes = (s) => new TextEncoder().encode(s).length;\nconst pwdError = (pwd, email) => {\n  if (bytes(pwd) > 72) return 'Mot de passe trop long (72 octets maximum).';\n  if (pwd.length < 12) return 'Mot de passe trop court (12 caractères minimum).';\n  const classes = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^A-Za-z0-9]/].filter((r) => r.test(pwd)).length;\n  if (classes < 3) return 'Mot de passe trop faible : mélangez au moins 3 types parmi minuscules, majuscules, chiffres et symboles.';\n  const name = email.split('@')[0].toLowerCase();\n  if (name.length >= 4 && pwd.toLowerCase().includes(name)) return 'Le mot de passe ne doit pas contenir votre identifiant email.';\n  return '';\n};\n\nconst parts = text.split(/\\s+/);\nconst head = strip(parts[0]);\nconst exact = strip(text).replace(/[.!?\\s]+$/, '');\nout.raw = text;\nout.exact = exact;\n\nconst START_REGISTER = ['inscription', \"s'inscrire\", 'sinscrire', \"je veux m'inscrire\", 'je veux minscrire',\n  'creer un compte', 'creer mon compte', 'nouveau compte', 'sign up', 'register'];\nconst START_LOGIN = ['connexion', 'se connecter', 'je veux me connecter', \"m'identifier\", 'login', 'log in', 'sign in'];\n\nif (START_REGISTER.includes(exact)) {\n  Object.assign(out, { route: 'session', cmd: 'register_start' });\n} else if (START_LOGIN.includes(exact)) {\n  Object.assign(out, { route: 'session', cmd: 'login_start' });\n} else if (['annuler', 'cancel', 'stop'].includes(exact)) {\n  Object.assign(out, { route: 'session', cmd: 'cancel' });\n} else if (['en savoir plus', 'savoir plus', 'politique de confidentialite', 'confidentialite'].includes(exact)) {\n  Object.assign(out, { route: 'session', cmd: 'privacy' });\n} else if (head === 'inscription') {\n  // inscription EMAIL MOT_DE_PASSE j'accepte\n  if (parts.length !== 4) return fail(\"Pour créer un compte, tapez simplement « inscription » : je vous guide étape par étape.\");\n  const email = parts[1].toLowerCase();\n  const password = parts[2];\n  if (email.length > 254 || !EMAIL_RE.test(email)) return fail('Adresse email invalide.');\n  const pe = pwdError(password, email);\n  if (pe) return fail(pe);\n  if (![\"accepte\", \"j'accepte\", 'jaccepte'].includes(strip(parts[3]))) {\n    return fail(\"Le consentement est obligatoire : terminez la commande par « j'accepte ».\");\n  }\n  Object.assign(out, { route: 'register', cmd: 'register', email, password, raw: '' });\n} else if (head === 'connexion') {\n  // connexion EMAIL MOT_DE_PASSE\n  if (parts.length !== 3) return fail('Pour vous connecter, tapez simplement « connexion » : je vous guide étape par étape.');\n  const email = parts[1].toLowerCase();\n  const password = parts[2];\n  if (email.length > 254 || !EMAIL_RE.test(email) || bytes(password) > 72) {\n    return fail('Pour vous connecter, tapez simplement « connexion » : je vous guide étape par étape.');\n  }\n  Object.assign(out, { route: 'login', cmd: 'login', email, password, raw: '' });\n} else {\n  out.route = 'session';\n  if (['deconnexion', 'logout'].includes(exact)) out.cmd = 'logout';\n  else if (exact === 'supprimer mon compte') out.cmd = 'delete_request';\n  else if (exact === 'confirmer suppression') out.cmd = 'delete_confirm';\n  else if (['mes donnees', 'exporter mes donnees'].includes(exact)) out.cmd = 'export';\n  else if (['aide', 'help'].includes(exact)) out.cmd = 'help';\n  else { out.cmd = 'chat'; out.message = text; }\n}\nreturn [{ json: out }];"
+        "jsCode": "const input = $input.first().json;\nconst out = { route: 'error', cmd: 'error', sessionId: '', message: '', raw: '', exact: '', email: '', password: '', error: '' };\nconst fail = (msg) => {\n  // on vide le mot de passe et le texte en cas d'erreur\n  Object.assign(out, { route: 'error', cmd: 'error', error: msg, password: '', message: '', raw: '' });\n  return [{ json: out }];\n};\n\n// sessionId trop court = trop facile à deviner\nconst sessionId = typeof input.sessionId === 'string' ? input.sessionId : '';\nif (!/^[A-Za-z0-9_-]{32,64}$/.test(sessionId)) {\n  return fail('Session invalide : rechargez la page du chat.');\n}\nout.sessionId = sessionId;\n\nlet text = typeof input.chatInput === 'string' ? input.chatInput : '';\ntext = text.normalize('NFKC')\n  .replace(/[\\u200b-\\u200f\\u202a-\\u202e\\u2060-\\u2064\\ufeff\\u00ad]/g, '')  // caract\\u00e8res invisibles\n  .replace(/[\\u0000-\\u001f\\u007f\\u2028\\u2029]/g, ' ')\n  .replace(/\\u2019/g, \"'\")\n  .trim();\nif (!text) return fail('Message vide.');\nif (text.length > 1000) return fail('Message trop long (1000 caractères maximum).');\n\nconst strip = (s) => s.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');\nconst EMAIL_RE = /^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,}$/;\nconst bytes = (s) => new TextEncoder().encode(s).length;\nconst pwdError = (pwd, email) => {\n  if (bytes(pwd) > 72) return 'Mot de passe trop long (72 octets maximum).';\n  if (pwd.length < 12) return 'Mot de passe trop court (12 caractères minimum).';\n  const classes = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^A-Za-z0-9]/].filter((r) => r.test(pwd)).length;\n  if (classes < 3) return 'Mot de passe trop faible : mélangez au moins 3 types parmi minuscules, majuscules, chiffres et symboles.';\n  const name = email.split('@')[0].toLowerCase();\n  if (name.length >= 4 && pwd.toLowerCase().includes(name)) return 'Le mot de passe ne doit pas contenir votre identifiant email.';\n  return '';\n};\n\nconst parts = text.split(/\\s+/);\nconst head = strip(parts[0]);\nconst exact = strip(text).replace(/[.!?\\s]+$/, '');\nout.raw = text;\nout.exact = exact;\n\nconst START_REGISTER = ['inscription', \"s'inscrire\", 'sinscrire', \"je veux m'inscrire\", 'je veux minscrire',\n  'creer un compte', 'creer mon compte', 'nouveau compte', 'sign up', 'register'];\nconst START_LOGIN = ['connexion', 'se connecter', 'je veux me connecter', \"m'identifier\", 'login', 'log in', 'sign in'];\n\nif (START_REGISTER.includes(exact)) {\n  Object.assign(out, { route: 'session', cmd: 'register_start' });\n} else if (START_LOGIN.includes(exact)) {\n  Object.assign(out, { route: 'session', cmd: 'login_start' });\n} else if (['annuler', 'cancel', 'stop'].includes(exact)) {\n  Object.assign(out, { route: 'session', cmd: 'cancel' });\n} else if (['en savoir plus', 'savoir plus', 'politique de confidentialite', 'confidentialite'].includes(exact)) {\n  Object.assign(out, { route: 'session', cmd: 'privacy' });\n} else if (head === 'inscription') {\n  // l'inscription passe toujours par les étapes guidées, pour vérifier l'email avec un code\n  return fail(\"Pour créer un compte, tapez simplement « inscription » : je vous guide étape par étape.\");\n} else if (head === 'connexion') {\n  // connexion EMAIL MOT_DE_PASSE\n  if (parts.length !== 3) return fail('Pour vous connecter, tapez simplement « connexion » : je vous guide étape par étape.');\n  const email = parts[1].toLowerCase();\n  const password = parts[2];\n  if (email.length > 254 || !EMAIL_RE.test(email) || bytes(password) > 72) {\n    return fail('Pour vous connecter, tapez simplement « connexion » : je vous guide étape par étape.');\n  }\n  Object.assign(out, { route: 'login', cmd: 'login', email, password, raw: '' });\n} else {\n  out.route = 'session';\n  if (['deconnexion', 'logout'].includes(exact)) out.cmd = 'logout';\n  else if (exact === 'supprimer mon compte') out.cmd = 'delete_request';\n  else if (exact === 'confirmer suppression') out.cmd = 'delete_confirm';\n  else if (['mes donnees', 'exporter mes donnees'].includes(exact)) out.cmd = 'export';\n  else if (['aide', 'help'].includes(exact)) out.cmd = 'help';\n  else if (['renvoyer', 'renvoyer le code', 'renvoyer un code', 'nouveau code'].includes(exact)) {\n    out.cmd = 'otp_resend';\n    out.message = text;\n  }\n  else { out.cmd = 'chat'; out.message = text; }\n}\nreturn [{ json: out }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -68,30 +68,6 @@
               },
               "renameOutput": true,
               "outputKey": "error"
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 2
-                },
-                "conditions": [
-                  {
-                    "id": "6f344731-94e0-5303-a62f-51a17e443dd7",
-                    "leftValue": "={{ $json.route }}",
-                    "rightValue": "register",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "register"
             },
             {
               "conditions": {
@@ -180,53 +156,6 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH new_user AS (\n  INSERT INTO users (email, password_hash, consent_given_at, consent_version)\n  VALUES ($1::text, crypt($2::text, gen_salt('bf', 12)), now(), 'v2')\n  ON CONFLICT (email) DO NOTHING\n  RETURNING id\n), prefs AS (\n  INSERT INTO preferences (user_id) SELECT id FROM new_user\n), log_ok AS (\n  INSERT INTO audit_log (event, user_id, details)\n  SELECT 'register_ok', id, '{}'::jsonb FROM new_user\n), log_dup AS (\n  INSERT INTO audit_log (event, user_id, details)\n  SELECT 'register_duplicate', (SELECT id FROM users WHERE email = $1::text), '{}'::jsonb\n  WHERE NOT EXISTS (SELECT 1 FROM new_user)\n)\nSELECT 'done' AS status;",
-        "options": {
-          "queryReplacement": "={{ [ $json.email, $json.password ] }}"
-        }
-      },
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.7,
-      "position": [
-        760,
-        200
-      ],
-      "id": "e3263f5e-d49f-53e1-be59-1863b61d7d34",
-      "name": "Créer le compte",
-      "credentials": {
-        "postgres": {
-          "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
-        }
-      },
-      "alwaysOutputData": true
-    },
-    {
-      "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "id": "70b8d425-4f32-5e22-b862-23f823ad87f5",
-              "name": "output",
-              "value": "=Si cette adresse était disponible, votre compte est créé. Connectez-vous avec : connexion EMAIL MOT_DE_PASSE",
-              "type": "string"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.5,
-      "position": [
-        1000,
-        200
-      ],
-      "id": "7b176f13-2601-564d-ae02-5bd7e21518c5",
-      "name": "Répondre inscription"
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
         "query": "WITH target AS (\n  SELECT id, password_hash, locked_until, failed_login_attempts\n  FROM users WHERE email = $1::text\n), state AS (\n  SELECT id, failed_login_attempts AS fails,\n         (locked_until IS NOT NULL AND locked_until > now()) AS locked,\n         (password_hash = crypt($2::text, password_hash)) AS ok\n  FROM target\n), dummy AS (\n  -- email inconnu : on hache quand même, pour avoir le même temps de réponse\n  SELECT crypt($2::text, gen_salt('bf', 12)) AS h WHERE NOT EXISTS (SELECT 1 FROM target)\n), bump AS (\n  UPDATE users u SET\n    failed_login_attempts = CASE WHEN s.locked THEN u.failed_login_attempts\n                                 WHEN s.ok THEN 0\n                                 ELSE u.failed_login_attempts + 1 END,\n    locked_until = CASE WHEN s.locked THEN u.locked_until\n                        WHEN s.ok THEN NULL\n                        WHEN u.failed_login_attempts + 1 >= 5 THEN now() + INTERVAL '15 minutes'\n                        ELSE u.locked_until END\n  FROM state s WHERE u.id = s.id\n  RETURNING u.id\n), sess AS (\n  INSERT INTO sessions (chat_session_id, user_id)\n  SELECT $3::text, s.id FROM state s WHERE s.ok AND NOT s.locked\n  ON CONFLICT (chat_session_id) DO UPDATE\n    SET user_id = EXCLUDED.user_id, created_at = now(), expires_at = now() + INTERVAL '2 hours'\n  RETURNING chat_session_id\n), clear_pending AS (\n  DELETE FROM auth_pending WHERE chat_session_id = $3::text AND EXISTS (SELECT 1 FROM sess)\n), log_known AS (\n  INSERT INTO audit_log (event, user_id, details)\n  SELECT CASE WHEN s.locked THEN 'login_blocked'\n              WHEN s.ok THEN 'login_ok'\n              WHEN s.fails + 1 >= 5 THEN 'account_locked'\n              ELSE 'login_failed' END,\n         s.id, '{}'::jsonb\n  FROM state s\n), log_unknown AS (\n  INSERT INTO audit_log (event, details)\n  SELECT 'login_failed_unknown', '{}'::jsonb WHERE NOT EXISTS (SELECT 1 FROM target)\n)\nSELECT CASE WHEN EXISTS (SELECT 1 FROM state WHERE ok AND NOT locked) THEN 'ok' ELSE 'denied' END AS status,\n       (SELECT count(*) FROM dummy) AS _pad;",
         "options": {
           "queryReplacement": "={{ [ $json.email, $json.password, $json.sessionId ] }}"
@@ -297,7 +226,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const a = $('Analyser le message').first().json;\nconst s = $input.first().json;\nlet action;\nif (['register_start', 'login_start', 'cancel', 'privacy'].includes(a.cmd)) action = a.cmd;\nelse if (!s.user_id && s.step) action = s.step;\nelse if (!s.user_id) action = 'anonymous';\nelse action = a.cmd;\nreturn [{ json: { action, user_id: s.user_id || null, pending_email: s.email || '' } }];"
+        "jsCode": "const a = $('Analyser le message').first().json;\nconst s = $input.first().json;\nconst cmd = a.cmd === 'otp_resend' && s.step !== 'register_otp' ? 'chat' : a.cmd;\nlet action;\nif (['register_start', 'login_start', 'cancel', 'privacy', 'otp_resend'].includes(cmd)) action = cmd;\nelse if (!s.user_id && s.step) action = s.step;\nelse if (!s.user_id) action = 'anonymous';\nelse action = cmd;\nreturn [{ json: { action, user_id: s.user_id || null, pending_email: s.email || '' } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -695,6 +624,54 @@
               },
               "renameOutput": true,
               "outputKey": "privacy"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "079d7230-3781-4cde-ac85-2eccd598623c",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "register_otp",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "register_otp"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "c9de2c1c-199f-402d-b615-7bd663aa9924",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "otp_resend",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "otp_resend"
             }
           ]
         },
@@ -972,36 +949,12 @@
     },
     {
       "parameters": {
-        "operation": "executeQuery",
-        "query": "WITH ok AS (SELECT 1 WHERE $3::text = ''),\nnew_user AS (\n  INSERT INTO users (email, password_hash, consent_given_at, consent_version)\n  SELECT $1::text, crypt($2::text, gen_salt('bf', 12)), now(), 'v2' FROM ok\n  ON CONFLICT (email) DO NOTHING\n  RETURNING id\n), prefs AS (\n  INSERT INTO preferences (user_id) SELECT id FROM new_user\n), log_ok AS (\n  INSERT INTO audit_log (event, user_id, details) SELECT 'register_ok', id, '{}'::jsonb FROM new_user\n), log_dup AS (\n  INSERT INTO audit_log (event, user_id, details)\n  SELECT 'register_duplicate', (SELECT id FROM users WHERE email = $1::text), '{}'::jsonb\n  WHERE EXISTS (SELECT 1 FROM ok) AND NOT EXISTS (SELECT 1 FROM new_user)\n), done AS (\n  DELETE FROM auth_pending WHERE chat_session_id = $4::text AND EXISTS (SELECT 1 FROM ok)\n)\nSELECT 'done' AS status;",
-        "options": {
-          "queryReplacement": "={{ [ $('Choisir l\\'étape').first().json.pending_email, $('Analyser le message').first().json.raw, $json.error, $('Analyser le message').first().json.sessionId ] }}"
-        }
-      },
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.7,
-      "position": [
-        1520,
-        2000
-      ],
-      "id": "5ba11405-8a5c-5491-9b90-06d844b4e137",
-      "name": "Créer le compte (guidé)",
-      "credentials": {
-        "postgres": {
-          "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
-        }
-      },
-      "alwaysOutputData": true
-    },
-    {
-      "parameters": {
         "assignments": {
           "assignments": [
             {
               "id": "874107a4-2be6-5811-a960-ca87dfd587d6",
               "name": "output",
-              "value": "={{ $('Vérifier le mot de passe').first().json.error ? $('Vérifier le mot de passe').first().json.error + ' Choisissez un autre mot de passe, ou tapez « annuler ».' : \"C'est fait ✅ Tapez « connexion » pour vous connecter.\" }}",
+              "value": "={{ $('Vérifier le mot de passe').first().json.error + ' Choisissez un autre mot de passe, ou tapez « annuler ».' }}",
               "type": "string"
             }
           ]
@@ -1012,10 +965,10 @@
       "typeVersion": 3.5,
       "position": [
         1760,
-        2000
+        2080
       ],
       "id": "ae838ecd-88ba-5ef4-9d9c-e534298f0725",
-      "name": "Répondre création du compte"
+      "name": "Répondre mot de passe refusé"
     },
     {
       "parameters": {
@@ -1490,7 +1443,7 @@
       "typeVersion": 2,
       "position": [
         1120,
-        2680
+        3040
       ],
       "id": "1bc67943-7680-517b-9005-8673f1b2f601",
       "name": "Faut-il limiter ?"
@@ -1523,7 +1476,7 @@
       "typeVersion": 2.2,
       "position": [
         1360,
-        2680
+        3040
       ],
       "id": "a436ec47-4604-538f-8b61-0b2526518bc4",
       "name": "Message pour l'IA ?"
@@ -1540,7 +1493,7 @@
       "typeVersion": 2.7,
       "position": [
         1600,
-        2680
+        3040
       ],
       "id": "d5447b2a-d986-5b85-b271-7417a10a73cd",
       "name": "Compter les appels IA",
@@ -1560,7 +1513,7 @@
       "typeVersion": 2,
       "position": [
         1840,
-        2680
+        3040
       ],
       "id": "ce9448eb-ed10-5caf-b1df-1517a733457a",
       "name": "Contrôler le débit"
@@ -1593,7 +1546,7 @@
       "typeVersion": 2.2,
       "position": [
         2080,
-        2680
+        3040
       ],
       "id": "c783a866-c6ad-5332-b791-f2815964bbfd",
       "name": "Débit autorisé ?"
@@ -1626,7 +1579,7 @@
       "typeVersion": 2.2,
       "position": [
         2560,
-        2560
+        2920
       ],
       "id": "4e5b37b6-2ef3-5da2-a00b-b2893a6ac09b",
       "name": "Interpréter la phrase ?"
@@ -1679,7 +1632,7 @@
       "typeVersion": 1.2,
       "position": [
         2800,
-        2500
+        2860
       ],
       "id": "f0f19738-fd86-54c2-aefe-10da39613fff",
       "name": "Interpréter la demande",
@@ -1693,7 +1646,7 @@
       "typeVersion": 2,
       "position": [
         3040,
-        2500
+        2860
       ],
       "id": "531d013e-e637-570a-a08c-a2cdf7c2cd11",
       "name": "Appliquer l'intention"
@@ -1706,7 +1659,7 @@
       "typeVersion": 2,
       "position": [
         2800,
-        2640
+        3000
       ],
       "id": "57789d74-7224-5122-9ef7-3bab2f0082a2",
       "name": "Garder l'action"
@@ -1723,7 +1676,7 @@
       "typeVersion": 2.7,
       "position": [
         2320,
-        2820
+        3180
       ],
       "id": "d50d4e2d-df92-5dad-a946-6bd8478fa3de",
       "name": "Journaliser la limite",
@@ -1753,10 +1706,271 @@
       "typeVersion": 3.5,
       "position": [
         2560,
-        2820
+        3180
       ],
       "id": "7ea7fa43-bd09-506a-ba62-1480e9126a00",
       "name": "Répondre trop de messages"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cb73552f-98d7-4848-8033-b8af37053235",
+              "leftValue": "={{ $json.error ? 'non' : 'oui' }}",
+              "rightValue": "oui",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1520,
+        2000
+      ],
+      "name": "Mot de passe accepté ?",
+      "id": "071f71fe-904a-48d1-bd3b-8cb895ecce0e"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH code AS (\n  SELECT lpad((('x' || encode(gen_random_bytes(4), 'hex'))::bit(32)::bigint % 1000000)::text, 6, '0') AS valeur\n), deja AS (\n  SELECT EXISTS (SELECT 1 FROM users WHERE email = $1::text) AS inscrit\n), upd AS (\n  UPDATE auth_pending\n  SET step = 'register_otp',\n      password_hash = crypt($2::text, gen_salt('bf', 12)),\n      otp_hash = CASE WHEN (SELECT inscrit FROM deja) THEN NULL\n                      ELSE crypt((SELECT valeur FROM code), gen_salt('bf', 8)) END,\n      otp_attempts = 0,\n      otp_sent_count = 1,\n      created_at = now()\n  WHERE chat_session_id = $3::text AND step = 'register_password'\n  RETURNING email\n), log_envoi AS (\n  INSERT INTO audit_log (event, details) SELECT 'register_otp_sent', '{}'::jsonb FROM upd\n), log_dup AS (\n  INSERT INTO audit_log (event, user_id, details)\n  SELECT 'register_duplicate', (SELECT id FROM users WHERE email = $1::text), '{}'::jsonb\n  FROM upd WHERE (SELECT inscrit FROM deja)\n)\nSELECT upd.email, CASE WHEN deja.inscrit THEN NULL ELSE code.valeur END AS code, deja.inscrit AS deja_inscrit\nFROM upd, code, deja;",
+        "options": {
+          "queryReplacement": "={{ [ $('Choisir l\\'étape').first().json.pending_email, $('Analyser le message').first().json.raw, $('Analyser le message').first().json.sessionId ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1760,
+        1940
+      ],
+      "name": "Préparer le code",
+      "credentials": {
+        "postgres": {
+          "id": "NVYHYZPCSYpCPKph",
+          "name": "postgres (à configurer)"
+        }
+      },
+      "alwaysOutputData": true,
+      "id": "4f0a0c7c-9012-45f7-8711-e1895dd5e0d9"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH code AS (\n  SELECT lpad((('x' || encode(gen_random_bytes(4), 'hex'))::bit(32)::bigint % 1000000)::text, 6, '0') AS valeur\n), p AS (\n  SELECT p.email, EXISTS (SELECT 1 FROM users u WHERE u.email = p.email) AS inscrit\n  FROM auth_pending p\n  WHERE p.chat_session_id = $1::text AND p.step = 'register_otp' AND p.otp_sent_count < 3\n    AND p.created_at > now() - INTERVAL '10 minutes'\n), upd AS (\n  UPDATE auth_pending a\n  SET otp_hash = CASE WHEN p.inscrit THEN NULL ELSE crypt((SELECT valeur FROM code), gen_salt('bf', 8)) END,\n      otp_attempts = 0,\n      otp_sent_count = a.otp_sent_count + 1,\n      created_at = now()\n  FROM p\n  WHERE a.chat_session_id = $1::text\n  RETURNING a.email, p.inscrit\n), log_envoi AS (\n  INSERT INTO audit_log (event, details) SELECT 'register_otp_sent', '{\"renvoi\": true}'::jsonb FROM upd\n)\nSELECT upd.email, CASE WHEN upd.inscrit THEN NULL ELSE code.valeur END AS code, upd.inscrit AS deja_inscrit\nFROM upd, code;",
+        "options": {
+          "queryReplacement": "={{ [ $('Analyser le message').first().json.sessionId ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1280,
+        2600
+      ],
+      "name": "Renvoyer le code",
+      "credentials": {
+        "postgres": {
+          "id": "NVYHYZPCSYpCPKph",
+          "name": "postgres (à configurer)"
+        }
+      },
+      "alwaysOutputData": true,
+      "id": "138eddc8-4c35-4ad4-a467-e10da6ef3345"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e9a0bba3-a883-4a56-917e-71357acb05eb",
+              "leftValue": "={{ $json.email ? 'oui' : 'non' }}",
+              "rightValue": "oui",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2000,
+        1940
+      ],
+      "name": "Code à envoyer ?",
+      "id": "7b2e2ff0-b9cf-4686-9c7e-632d3b3eba7a"
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\n// un compte existe déjà avec cet email : pas de code, on le prévient seulement\nif (r.deja_inscrit) {\n  return [{ json: { to: r.email, subject: 'Votre compte Persona', text:\n    \"Bonjour,\\n\\nQuelqu'un a demandé à créer un compte Persona avec cette adresse, mais vous en avez déjà un.\\n\"\n    + \"Pour vous connecter, tapez « connexion » dans le chat.\\n\\nSi ce n'est pas vous, ignorez cet email.\" } }];\n}\nreturn [{ json: { to: r.email, subject: 'Votre code Persona : ' + r.code, text:\n  'Bonjour,\\n\\nVotre code Persona : ' + r.code + '\\n\\nTapez-le dans le chat pour finir votre inscription. Il est valable 10 minutes.\\n\\n'\n  + \"Si vous n'avez rien demandé, ignorez cet email : aucun compte ne sera créé.\" } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2240,
+        1880
+      ],
+      "name": "Écrire l'email",
+      "id": "338e60c2-5c09-47cc-97b2-2b5c1446ccd5"
+    },
+    {
+      "parameters": {
+        "fromEmail": "Persona <personaepitech26@gmail.com>",
+        "toEmail": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "text",
+        "text": "={{ $json.text }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        2480,
+        1880
+      ],
+      "name": "Envoyer le code",
+      "webhookId": "95adfcd2-7490-4474-ad97-41822fbc2707",
+      "credentials": {
+        "smtp": {
+          "id": "PersonaMailpit01",
+          "name": "smtp (à configurer)"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "id": "2fe08c38-1ce8-4a76-a706-58a19ddc9f53"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1f2e70f1-0c8a-4ff9-acdf-4b800c28cabd",
+              "name": "output",
+              "value": "Je vous ai envoyé un code à 6 chiffres par email. Tapez-le ici, il est valable 10 minutes. Pas reçu ? Tapez « renvoyer le code ».",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        2720,
+        1820
+      ],
+      "name": "Répondre code envoyé",
+      "id": "961026dc-c9ea-4815-9f48-99049e9c39fb"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7dc85434-8982-4a14-ba55-258b6ca3825b",
+              "name": "output",
+              "value": "Je n'ai pas pu envoyer l'email. Réessayez dans un instant avec « renvoyer le code », ou tapez « annuler ».",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        2720,
+        1960
+      ],
+      "name": "Répondre email non envoyé",
+      "id": "0286834e-8a53-48ee-8442-ec48c360edbb"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b573c9c6-7295-4935-b5a7-418d2dda0a82",
+              "name": "output",
+              "value": "Je ne peux plus envoyer de code pour cette inscription. Tapez « inscription » pour recommencer.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        2240,
+        2020
+      ],
+      "name": "Répondre renvoi refusé",
+      "id": "9d4f2c6e-c06b-414e-ae19-7d3a01092626"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH p AS (\n  SELECT * FROM auth_pending\n  WHERE chat_session_id = $1::text AND step = 'register_otp'\n    AND created_at > now() - INTERVAL '10 minutes'\n  FOR UPDATE\n), saisi AS (\n  SELECT regexp_replace($2::text, '[[:space:]]', '', 'g') AS code\n), bon AS (\n  SELECT p.email, p.password_hash FROM p, saisi\n  WHERE p.otp_attempts < 5 AND p.otp_hash IS NOT NULL\n    AND saisi.code ~ '^[0-9]{6}$'\n    AND p.otp_hash = crypt(saisi.code, p.otp_hash)\n), new_user AS (\n  INSERT INTO users (email, password_hash, consent_given_at, consent_version)\n  SELECT email, password_hash, now(), 'v2' FROM bon\n  ON CONFLICT (email) DO NOTHING\n  RETURNING id\n), prefs AS (\n  INSERT INTO preferences (user_id) SELECT id FROM new_user\n), log_ok AS (\n  INSERT INTO audit_log (event, user_id, details) SELECT 'register_ok', id, '{}'::jsonb FROM new_user\n), rate AS (\n  UPDATE auth_pending SET otp_attempts = otp_attempts + 1\n  WHERE chat_session_id = $1::text AND EXISTS (SELECT 1 FROM p) AND NOT EXISTS (SELECT 1 FROM bon)\n  RETURNING otp_attempts\n), log_rate AS (\n  INSERT INTO audit_log (event, details)\n  SELECT 'register_otp_failed', jsonb_build_object('essai', otp_attempts) FROM rate\n), fini AS (\n  DELETE FROM auth_pending WHERE chat_session_id = $1::text AND EXISTS (SELECT 1 FROM bon)\n)\nSELECT EXISTS (SELECT 1 FROM bon) AS ok, COALESCE((SELECT otp_attempts FROM rate), 0) AS essais;",
+        "options": {
+          "queryReplacement": "={{ [ $('Analyser le message').first().json.sessionId, $('Analyser le message').first().json.raw ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1280,
+        2480
+      ],
+      "name": "Vérifier le code",
+      "credentials": {
+        "postgres": {
+          "id": "NVYHYZPCSYpCPKph",
+          "name": "postgres (à configurer)"
+        }
+      },
+      "alwaysOutputData": true,
+      "id": "3a1ff870-a459-4cb2-86d6-ef20b1f4df97"
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nlet output = \"Code incorrect. Vérifiez l'email et réessayez, tapez « renvoyer le code » pour en recevoir un nouveau, ou « annuler ».\";\nif (r.ok) output = \"C'est fait ✅ Votre email est vérifié et votre compte est créé. Tapez « connexion » pour vous connecter.\";\nelse if (Number(r.essais) >= 5) output = \"Trop d'essais. Tapez « inscription » pour recommencer.\";\nreturn [{ json: { output } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        2480
+      ],
+      "name": "Répondre code",
+      "id": "29a527e0-75a5-4967-a110-5ccb181fd85f"
     }
   ],
   "connections": {
@@ -1793,13 +2007,6 @@
         ],
         [
           {
-            "node": "Créer le compte",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
             "node": "Vérifier les identifiants",
             "type": "main",
             "index": 0
@@ -1815,28 +2022,6 @@
       ]
     },
     "Répondre erreur de saisie": {
-      "main": [
-        [
-          {
-            "node": "Formater la réponse",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Créer le compte": {
-      "main": [
-        [
-          {
-            "node": "Répondre inscription",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Répondre inscription": {
       "main": [
         [
           {
@@ -2004,6 +2189,20 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Vérifier le code",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Renvoyer le code",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -2132,29 +2331,7 @@
       "main": [
         [
           {
-            "node": "Créer le compte (guidé)",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Créer le compte (guidé)": {
-      "main": [
-        [
-          {
-            "node": "Répondre création du compte",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Répondre création du compte": {
-      "main": [
-        [
-          {
-            "node": "Formater la réponse",
+            "node": "Mot de passe accepté ?",
             "type": "main",
             "index": 0
           }
@@ -2498,6 +2675,159 @@
       ]
     },
     "Répondre trop de messages": {
+      "main": [
+        [
+          {
+            "node": "Formater la réponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Répondre mot de passe refusé": {
+      "main": [
+        [
+          {
+            "node": "Formater la réponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mot de passe accepté ?": {
+      "main": [
+        [
+          {
+            "node": "Préparer le code",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Répondre mot de passe refusé",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Préparer le code": {
+      "main": [
+        [
+          {
+            "node": "Code à envoyer ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Renvoyer le code": {
+      "main": [
+        [
+          {
+            "node": "Code à envoyer ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code à envoyer ?": {
+      "main": [
+        [
+          {
+            "node": "Écrire l'email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Répondre renvoi refusé",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Écrire l'email": {
+      "main": [
+        [
+          {
+            "node": "Envoyer le code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Envoyer le code": {
+      "main": [
+        [
+          {
+            "node": "Répondre code envoyé",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Répondre email non envoyé",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vérifier le code": {
+      "main": [
+        [
+          {
+            "node": "Répondre code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Répondre code envoyé": {
+      "main": [
+        [
+          {
+            "node": "Formater la réponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Répondre email non envoyé": {
+      "main": [
+        [
+          {
+            "node": "Formater la réponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Répondre renvoi refusé": {
+      "main": [
+        [
+          {
+            "node": "Formater la réponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Répondre code": {
       "main": [
         [
           {
