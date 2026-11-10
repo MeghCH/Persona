@@ -146,7 +146,9 @@ http://localhost:5678/webhook/9d5a3c0e-6c1e-4b6e-9a53-2f0c7a8f4a11/chat
 
 Ce qu'on peut écrire au chatbot :
 
-- `inscription` : il demande l'email, si on accepte la politique de confidentialité, puis le mot de passe
+- `inscription` : il demande l'email, si on accepte la politique de confidentialité, puis le mot de passe,
+  puis envoie un code à 6 chiffres par email : le compte n'est créé qu'une fois ce code tapé dans le chat
+  (`renvoyer le code` en envoie un autre, voir [doc/code-inscription.md](doc/code-inscription.md))
 - `en savoir plus` : affiche la politique de confidentialité (celle de `doc/normes-RGPD.md`)
 - `connexion` : il demande l'email puis le mot de passe
 - `annuler` : arrête l'inscription ou la connexion en cours
@@ -156,8 +158,8 @@ Ce qu'on peut écrire au chatbot :
 - `aide`
 - n'importe quel autre message, une fois connecté : il part à l'agent
 
-On peut aussi s'inscrire ou se connecter en une ligne :
-`inscription EMAIL MOT_DE_PASSE j'accepte` et `connexion EMAIL MOT_DE_PASSE`.
+On peut aussi se connecter en une ligne : `connexion EMAIL MOT_DE_PASSE`. L'inscription en une ligne
+n'existe plus : elle créait le compte sans vérifier l'email.
 
 On peut aussi écrire une phrase normale, comme « je voudrais créer un compte » ou « comment je
 récupère mes données ? » : `[A] Chat - Intention` comprend ce qu'on veut et le chatbot fait la même
