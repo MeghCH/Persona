@@ -49,15 +49,30 @@ CREATE TABLE IF NOT EXISTS sessions (
 
 -- ---------------------------------------------------------------------
 -- Étape en cours de l'inscription / connexion guidée
--- On n'y stocke jamais le mot de passe.
+-- On n'y stocke jamais le mot de passe en clair ni le code en clair :
+-- seulement leurs hash (password_hash, otp_hash). Le compte n'est créé
+-- qu'une fois le code reçu par email tapé dans le chat.
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_pending (
     chat_session_id TEXT PRIMARY KEY,
-    step            TEXT NOT NULL CHECK (step IN ('register_email', 'register_consent', 'register_password',
-                                                  'login_email', 'login_password')),
+    step            TEXT NOT NULL,
     email           TEXT,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    password_hash   TEXT,
+    otp_hash        TEXT,
+    otp_attempts    INTEGER NOT NULL DEFAULT 0,
+    otp_sent_count  INTEGER NOT NULL DEFAULT 0
 );
+
+-- Pour une base déjà créée : colonnes du code et nouvelle étape register_otp.
+ALTER TABLE auth_pending ADD COLUMN IF NOT EXISTS password_hash  TEXT;
+ALTER TABLE auth_pending ADD COLUMN IF NOT EXISTS otp_hash       TEXT;
+ALTER TABLE auth_pending ADD COLUMN IF NOT EXISTS otp_attempts   INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE auth_pending ADD COLUMN IF NOT EXISTS otp_sent_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE auth_pending DROP CONSTRAINT IF EXISTS auth_pending_step_check;
+ALTER TABLE auth_pending ADD CONSTRAINT auth_pending_step_check
+    CHECK (step IN ('register_email', 'register_consent', 'register_password', 'register_otp',
+                    'login_email', 'login_password'));
 
 -- ---------------------------------------------------------------------
 -- Préférences de newsletter

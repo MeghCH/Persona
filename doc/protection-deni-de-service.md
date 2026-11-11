@@ -58,7 +58,9 @@ données ? » est comprise.
 
 Le workflow `[A] Chat - Intention` demande à Gemini de classer la phrase dans une liste fermée :
 `inscription`, `connexion`, `deconnexion`, `mes_donnees`, `supprimer_compte`, `confidentialite`,
-`aide`, `annuler`, `aucune`. Gemini ne fait que classer. C'est le workflow d'entrée qui décide.
+`aide`, `annuler`, `aucune`. Dans le même appel, il écrit une réponse courte et naturelle, que le
+chatbot affiche à la place de sa phrase habituelle (non connecté, aide). Les liens sont retirés de
+cette réponse. Gemini ne fait aucune action : c'est le workflow d'entrée qui décide.
 
 Ce qui reste protégé :
 
@@ -81,7 +83,7 @@ Ce qui reste protégé :
 docker compose exec -T n8n node - < scripts/test_scenarios.js
 ```
 
-36 tests ajoutés (52 en tout, tous passent). Ils lancent le vrai code des nœuds :
+55 tests en tout, tous passent. Ils lancent le vrai code des nœuds :
 
 - quels messages partent vers l'IA (et le mot de passe n'y va jamais)
 - chaque limite, et le cas où les non connectés ont tout utilisé mais un connecté passe encore

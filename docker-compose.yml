@@ -44,6 +44,18 @@ services:
       - n8n_data:/home/node/.n8n
       - ./workflows:/home/node/exports
 
+  # Fausse boîte mail pour tester le code d'inscription : http://localhost:8025
+  # (rien ne part vraiment). Dans n8n : credential SMTP, Host mailpit, Port 1025, sans SSL.
+  mailpit:
+    image: axllent/mailpit:v1.27.7
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8025:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 15s
+      start_period: 10s
+
   # Page de démo avec la bulle de chat : http://localhost:8090
   web:
     image: nginx:1.27-alpine

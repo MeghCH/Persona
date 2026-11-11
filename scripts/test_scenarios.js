@@ -191,7 +191,7 @@ verifier('un long message est compté, mais pas interprété',
 
 // Scénario : l'utilisateur est en train de taper son mot de passe. Rien ne doit partir vers l'IA.
 const etapesVersIA = [];
-for (const etape of ['register_email', 'register_consent', 'register_password', 'login_email', 'login_password']) {
+for (const etape of ['register_email', 'register_consent', 'register_password', 'register_otp', 'login_email', 'login_password']) {
   if (decisionLimite(etape, 'MotDePasse-1234!', null).limiter) etapesVersIA.push(etape);
 }
 verifier("pendant l'inscription ou la connexion guidée, rien ne part vers l'IA",
@@ -288,6 +288,23 @@ verifier('un mot qui ressemble à un nom interne de JavaScript devient « aucune
 verifier("pas de réponse de l'IA : « aucune »",
   [lireIntention({}), lireIntention({ output: '' }), lireIntention({ error: 'quota dépassé' })].join(','),
   'aucune,aucune,aucune');
+
+// La réponse naturelle de l'IA est sur les lignes après le mot.
+const lireReponse = (reponseIA) =>
+  lancerNoeud(intention, "Lire l'intention", { $input: { first: () => ({ json: reponseIA }) } })[0].json.reponse;
+
+verifier("la réponse naturelle est lue après le mot",
+  lireReponse({ output: 'aucune\nSalut ! Je prépare une newsletter selon vos goûts.' }),
+  'Salut ! Je prépare une newsletter selon vos goûts.');
+
+// Scénario : une phrase piégée fait écrire à l'IA un lien de phishing.
+verifier("les liens sont retirés de la réponse",
+  /https?:|www\./.test(lireReponse({ output: 'aucune\nConnectez-vous sur https://faux-persona.example/login ou www.piege.example' })),
+  false);
+
+// Scénario : l'IA ne respecte pas le format. Pas de réponse : le chatbot garde sa phrase habituelle.
+verifier("sans mot sur la première ligne, il n'y a pas de réponse à afficher",
+  [lireReponse({ output: 'Bonjour, comment puis-je vous aider ?' }), lireReponse({})].join('|'), '|');
 
 // Cas normal : un non connecté veut un compte ou veut se connecter.
 verifier("un non connecté qui veut s'inscrire démarre l'inscription",
@@ -394,6 +411,89 @@ verifier('aucun autre nœud n\'enregistre de message dans chat_ai_requests',
 // Scénario : un utilisateur bloqué insiste. Ses messages refusés ne doivent pas user ses limites du jour.
 verifier('un message refusé rend sa place (sa réservation est supprimée)',
   /DELETE FROM chat_ai_requests/i.test(requete('Journaliser la limite')), true);
+
+// Code par email à l'inscription
+// ---
+console.log("\n--- Inscription : code reçu par email");
+
+const noeud = nom => entree.nodes.find(n => n.name === nom);
+const sqlDe = nom => (noeud(nom).parameters.query || '');
+// Ce que « Analyser le message » comprend d'un texte tapé dans le chat.
+function analyser(texte) {
+  const session = 'a'.repeat(40);
+  return lancerNoeud(entree, 'Analyser le message', {
+    $input: { first: () => ({ json: { sessionId: session, chatInput: texte } }) },
+  })[0].json;
+}
+
+// Scénario : un robot essaie de créer un compte en une ligne, sans passer par le code.
+verifier("l'inscription en une ligne est refusée",
+  analyser("inscription robot@example.com Un-Mot-De-Passe-1234 j'accepte").route, 'error');
+
+// Scénario : un robot cherche un autre chemin qui crée un compte sans code.
+verifier("un seul nœud crée des comptes : « Vérifier le code »",
+  entree.nodes.filter(n => /INSERT INTO users/i.test(n.parameters.query || '')).map(n => n.name).join(','),
+  'Vérifier le code');
+
+// Scénario : un attaquant prévoit le code parce qu'il est tiré avec une fonction prévisible.
+verifier('le code est tiré avec gen_random_bytes (pas random())',
+  /gen_random_bytes/.test(sqlDe('Préparer le code')) && !/random\(\)/i.test(sqlDe('Préparer le code')), true);
+
+// Scénario : le code ou le mot de passe fuite par la base. On ne garde que leurs hash.
+verifier('le code et le mot de passe sont hachés avant d\'être gardés',
+  /otp_hash = CASE[\s\S]*crypt\(/.test(sqlDe('Préparer le code')) && /password_hash = crypt\(/.test(sqlDe('Préparer le code')), true);
+
+// Scénario : un attaquant essaie tous les codes un par un.
+verifier('5 essais au maximum par code', /otp_attempts < 5/.test(sqlDe('Vérifier le code')), true);
+verifier('un code de 10 minutes au maximum', /INTERVAL '10 minutes'/.test(sqlDe('Vérifier le code')), true);
+verifier('le code doit faire exactement 6 chiffres', /\^\[0-9\]\{6\}\$/.test(sqlDe('Vérifier le code')), true);
+
+// Scénario : quelqu'un fait renvoyer des codes pour remplir la boîte mail d'une autre personne.
+verifier('3 envois de code au maximum par inscription', /otp_sent_count < 3/.test(sqlDe('Renvoyer le code')), true);
+
+// Scénario : l'utilisateur tape son code. Il ne doit jamais partir vers l'IA.
+verifier('le code tapé dans le chat ne part pas vers l\'IA',
+  JSON.stringify(decisionLimite('register_otp', '123456', null)),
+  JSON.stringify({ action: 'register_otp', user_id: null, pending_email: '', interpreter: false, limiter: false }));
+
+// Scénario : le code apparaît dans une réponse du chat (donc visible par n'importe qui sur la session).
+const reponsesDuChat = ['Répondre code envoyé', 'Répondre email non envoyé', 'Répondre renvoi refusé'];
+verifier('les réponses sur le code n\'affichent jamais le code',
+  reponsesDuChat.filter(nom => /\$json|\$\(/.test(JSON.stringify(noeud(nom).parameters))).join(','), '');
+verifier('le chat ne dit que « envoyé » ou « refusé » : il n\'y a aucun chiffre à 6 chiffres dans ses messages',
+  reponsesDuChat.filter(nom => /\d{6}/.test(JSON.stringify(noeud(nom).parameters))).length, 0);
+
+// Scénario : un email déjà inscrit demande un code. Le chat répond pareil, mais aucun code ne part.
+function ecrireEmail(ligne) {
+  return lancerNoeud(entree, "Écrire l'email", { $input: { first: () => ({ json: ligne }) } })[0].json;
+}
+const mailDejaInscrit = ecrireEmail({ email: 'a@example.com', code: null, deja_inscrit: true });
+verifier('un email déjà inscrit reçoit un message sans code',
+  /\d{6}/.test(mailDejaInscrit.subject + mailDejaInscrit.text), false);
+verifier('un nouvel email reçoit son code (sujet et texte)',
+  ecrireEmail({ email: 'a@example.com', code: '042917', deja_inscrit: false }).subject, 'Votre code Persona : 042917');
+verifier('le code est tiré à vide quand l\'email est déjà inscrit (aucun code ne peut marcher)',
+  /CASE WHEN \(SELECT inscrit FROM deja\) THEN NULL/.test(sqlDe('Préparer le code'))
+  && /p\.inscrit THEN NULL/.test(sqlDe('Renvoyer le code')), true);
+
+// Scénario : la réponse du chat après avoir tapé le code.
+function repondreCode(ligne) {
+  return lancerNoeud(entree, 'Répondre code', { $input: { first: () => ({ json: ligne }) } })[0].json.output;
+}
+verifier('bon code : le compte est créé', /compte est créé/.test(repondreCode({ ok: true, essais: 0 })), true);
+verifier('mauvais code : on peut réessayer', /Code incorrect/.test(repondreCode({ ok: false, essais: 2 })), true);
+verifier('5e mauvais code : il faut recommencer', /Trop d'essais/.test(repondreCode({ ok: false, essais: 5 })), true);
+
+// Scénario : « renvoyer le code » tapé par quelqu'un qui n'est pas en train de s'inscrire.
+function etapeApres(texte, etapeEnBase) {
+  const $ = () => ({ first: () => ({ json: analyser(texte) }) });
+  return lancerNoeud(entree, "Choisir l'étape", {
+    $, $input: { first: () => ({ json: { step: etapeEnBase, user_id: null, email: 'a@example.com' } }) },
+  })[0].json.action;
+}
+verifier('« renvoyer le code » pendant l\'inscription renvoie un code', etapeApres('renvoyer le code', 'register_otp'), 'otp_resend');
+verifier('« renvoyer le code » sans inscription en cours ne fait rien de spécial', etapeApres('renvoyer le code', undefined), 'anonymous');
+verifier('à l\'étape du code, ce qu\'on tape est lu comme un code', etapeApres('123456', 'register_otp'), 'register_otp');
 
 
 console.log('\n' + reussis + ' réussis, ' + rates + ' ratés');
