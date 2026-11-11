@@ -57,9 +57,8 @@ au bout d'une heure, comme avant.
 s'affichent sur http://localhost:8025, rien ne part vraiment.
 
 Le nœud `Envoyer le code` utilise le credential `SMTP Persona`, le même que la newsletter de B.
-`bash scripts/setup.sh` le crée réglé sur Mailpit (host `mailpit`, port 1025, sans SSL ni mot de
-passe). Pour envoyer de vrais emails, le modifier dans n8n : voir « Ce que crée `setup.sh` » dans
-le README.
+Pour tester, le régler sur Mailpit (host `mailpit`, port 1025, sans SSL ni mot de passe) ; pour
+envoyer de vrais emails, sur Gmail. Les deux réglages sont à l'étape 2 du README.
 
 ## Tests
 

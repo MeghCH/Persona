@@ -1,4 +1,6 @@
 {
+  "updatedAt": "2026-10-28T11:11:57.223Z",
+  "createdAt": "2026-10-28T10:21:00.172Z",
   "id": "7tqdTDCdDhXdIczI",
   "name": "[B] News - Désinscription",
   "description": null,
@@ -390,5 +392,15 @@
   "meta": {
     "templateCredsSetupCompleted": true
   },
-  "tags": []
+  "nodeGroups": [],
+  "versionId": "660ae041-3abd-4302-9f91-5a68d63618e2",
+  "activeVersionId": "660ae041-3abd-4302-9f91-5a68d63618e2",
+  "versionCounter": 91,
+  "triggerCount": 1,
+  "sourceWorkflowId": null,
+  "tags": [],
+  "versionMetadata": {
+    "name": "v1 - Désinscription en un clic",
+    "description": ""
+  }
 }

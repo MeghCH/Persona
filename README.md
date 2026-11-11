@@ -14,10 +14,11 @@ l'actualité par email, aux jours et à l'heure qu'on veut.
 - **Sous Windows** : WSL 2 avec Ubuntu, et Docker Desktop avec l'intégration WSL activée. Toutes
   les commandes se tapent dans le terminal Ubuntu, et le projet se clone dans Ubuntu (`~`), pas dans `C:`.
 - **Des ports libres** : 5432 (base), 5678 (n8n), 8025 (emails), 8090 (chatbot)
-- **Facultatif** : une clé API Gemini, gratuite sur https://aistudio.google.com/apikey. Sans clé,
-  l'inscription et la connexion marchent, mais pas l'agent ni la collecte des news.
+- **Une clé API Gemini**, gratuite sur https://aistudio.google.com/apikey. Sans clé, l'inscription
+  et la connexion marchent, mais pas l'agent ni la collecte des news.
+- **Python 3**, seulement pour exporter des workflows (voir [Travailler à deux](#travailler-à-deux))
 
-### Démarrer
+### 1. Démarrer
 
 ```bash
 git clone <url-du-repo> persona
@@ -25,112 +26,139 @@ cd persona
 bash scripts/setup.sh
 ```
 
-C'est tout. La première fois, le script :
+La première fois, le script crée le fichier `.env` et s'arrête. Ouvrir `.env` et remplacer :
 
-1. crée le fichier `.env`, avec des mots de passe générés
-2. démarre les conteneurs (Docker télécharge les images : quelques minutes)
-3. crée la base de données
-4. crée les credentials de n8n (base, emails, Gemini)
-5. importe les workflows et les publie
+- `POSTGRES_PASSWORD` et `PERSONA_DB_PASSWORD` : deux mots de passe au choix
+- `N8N_ENCRYPTION_KEY` : le résultat de `openssl rand -hex 32`
 
-Ensuite :
+Puis relancer `bash scripts/setup.sh`. Il démarre les conteneurs (la première fois, Docker
+télécharge les images : quelques minutes), prépare la base et importe les workflows dans n8n.
+
+Le `.env` ne doit jamais être commit (il est dans `.gitignore`). Ne plus changer
+`N8N_ENCRYPTION_KEY` ensuite : n8n ne pourrait plus lire ses credentials.
+
+### 2. Créer les credentials dans n8n
+
+Ouvrir http://localhost:5678. La première fois, n8n demande de créer un compte : c'est un compte
+local, qui ne sert qu'à cette installation.
+
+Puis _Create_ → _Credential_, trois fois. **Les noms doivent être exactement ceux-ci** : c'est grâce
+à eux que n8n branche les workflows dessus.
+
+| Nom | Type | Réglages |
+|---|---|---|
+| `Postgres Persona` | Postgres | Host `postgres`, Database `persona`, User `persona_app`, Password : la valeur de `PERSONA_DB_PASSWORD` dans `.env`, Port `5432`, SSL `Disable` |
+| `SMTP Persona` | SMTP | Host `mailpit`, Port `1025`, SSL/TLS désactivé, User et Password vides |
+| `LLM Persona` | Google Gemini(PaLM) Api | API Key : la clé Gemini (laisser le Host par défaut) |
+
+n8n utilise `persona_app` et pas le compte admin : même si un attaquant détourne une requête,
+il ne peut pas supprimer de tables.
+
+Avec ces réglages, aucun email ne part vraiment : ils arrivent tous dans Mailpit, une fausse boîte
+mail, sur http://localhost:8025. Pour envoyer de vrais emails avec Gmail, régler `SMTP Persona` sur :
+Host `smtp.gmail.com`, Port `465`, SSL/TLS activé, User l'adresse Gmail, Password un
+[mot de passe d'application](https://myaccount.google.com/apppasswords). Changer aussi l'adresse
+d'expéditeur dans les nœuds `Envoyer le code` et `Envoyer la newsletter`.
+
+### 3. Brancher les workflows sur les credentials
+
+```bash
+docker compose exec n8n n8n import:workflow --separate --input=/home/node/exports
+```
+
+Cette commande réimporte les workflows du dossier `workflows/`. Au passage, n8n branche chaque
+nœud sur le credential du même nom.
+
+### 4. Publier les workflows
+
+Dans n8n, ouvrir chaque workflow et cliquer sur _Publish_, dans cet ordre :
+
+1. `[A] Chat - Agent` et `[A] Chat - Intention` d'abord : n8n refuse de publier `[A] Chat - Entrée`
+   tant que les workflows qu'il appelle ne sont pas publiés
+2. `[A] Chat - Entrée`
+3. `[B] News - Collecte`, `[B] News - Désinscription` et `[Commun] Maintenance RGPD`
+4. `[B] News - Envoi` seulement si on veut envoyer les newsletters (elles arrivent dans Mailpit)
+
+C'est prêt :
 
 - **chatbot** : http://localhost:8090, cliquer sur la bulle et taper `inscription`
-- **emails** : http://localhost:8025 (Mailpit). Rien ne part vraiment : le code d'inscription et
-  les newsletters arrivent ici.
-- **n8n** : http://localhost:5678, pour voir et modifier les workflows. La première fois, n8n
-  demande de créer un compte : c'est un compte local, qui ne sert qu'à cette installation.
-
-Pour la clé Gemini : la coller après `GEMINI_API_KEY=` dans le fichier `.env`, puis relancer
-`bash scripts/setup.sh`.
+- **emails** : http://localhost:8025, où arrive le code d'inscription
 
 ### Au quotidien
 
-| Pour... | Commande |
+| Pour... | Faire |
 |---|---|
 | arrêter | `docker compose down` |
 | relancer | `bash scripts/setup.sh` |
-| récupérer le travail de l'autre | `git pull` puis `bash scripts/setup.sh --import` |
-| exporter ses workflows modifiés dans n8n | `bash scripts/export.sh` (voir [Travailler à deux](#travailler-à-deux)) |
+| récupérer le travail de l'autre | `git pull`, `bash scripts/setup.sh`, puis les étapes 3 et 4 |
+| exporter ses workflows modifiés | voir [Travailler à deux](#travailler-à-deux) |
 | voir les derniers événements du journal | `bash scripts/journal.sh` (ou `bash scripts/journal.sh 50`) |
 | lancer les tests | `docker compose exec -T n8n node - < scripts/test_scenarios.js` |
-| tout effacer et repartir de zéro | `docker compose down -v` puis `bash scripts/setup.sh` |
+| tout effacer et repartir de zéro | `docker compose down -v`, puis les étapes 1 à 4 |
 
-`--import` remplace les workflows de n8n par ceux du dossier `workflows/`. Si on a modifié un
-workflow dans n8n sans l'exporter, le faire avant (`bash scripts/export.sh`).
+`bash scripts/setup.sh` met aussi la base à jour : le schéma est dans un seul fichier,
+`db/schema/02-schema.sql`, et une base existante reçoit les nouvelles tables et colonnes sans
+perdre ses données.
+
+L'étape 3 remplace les workflows de n8n par ceux du dossier `workflows/`, et les dépublie. Si on a
+modifié un workflow dans n8n sans l'exporter, le faire avant.
 
 `docker compose down -v` efface tout : la base, mais aussi le compte n8n, les credentials et les
-workflows de n8n. Le script recrée tout.
+workflows de n8n.
+
+Toujours importer avec la commande de l'étape 3, jamais avec _Import from File_ dans n8n : n8n en
+ferait une copie avec un nouvel id, qui prendrait la place de l'original.
 
 ### Si ça ne marche pas
 
 | Ce qu'on voit | Quoi faire |
 |---|---|
 | `port is already allocated` au démarrage | un autre programme utilise un des ports (souvent un PostgreSQL installé sur l'ordinateur, sur 5432) : l'arrêter, puis relancer |
-| `Docker ne répond pas` | lancer Docker Desktop, attendre qu'il soit prêt, puis relancer |
 | la page ne répond pas (Windows) | garder Docker Desktop et un terminal Ubuntu ouverts |
-| « Je n'ai pas pu envoyer l'email » | Mailpit est arrêté (`docker compose ps` pour vérifier), ou le credential `SMTP Persona` a été modifié dans n8n |
-| « Désolé, je n'ai pas pu traiter votre demande » | pas de clé Gemini, clé invalide, ou quota Gemini du jour épuisé |
+| des nœuds en rouge dans n8n | un credential n'a pas exactement le bon nom, ou a été créé après l'import : corriger le nom, puis refaire les étapes 3 et 4 |
+| « Je n'ai pas pu envoyer l'email » | vérifier les réglages de `SMTP Persona`, et que Mailpit tourne (`docker compose ps`) |
+| « Désolé, je n'ai pas pu traiter votre demande » | clé Gemini absente ou invalide, ou quota Gemini du jour épuisé |
 | « Error in workflow » | la base est arrêtée : relancer `bash scripts/setup.sh` |
+| le chat répond comme une ancienne version | une copie du workflow est publiée à la place de l'original : dans n8n, archiver la copie et publier l'original |
 | autre chose | `docker compose logs n8n` montre les erreurs de n8n |
-
-### Ce que crée `setup.sh`
-
-Le fichier `.env` garde les mots de passe. Il ne faut jamais le commit (il est dans `.gitignore`),
-et ne plus changer `N8N_ENCRYPTION_KEY` après le premier lancement : n8n ne pourrait plus lire
-ses credentials.
-
-Les credentials de n8n, partagés par tous les workflows :
-
-| Credential | Pour | Réglage en local |
-|---|---|---|
-| `Postgres Persona` | la base `persona` | host `postgres`, utilisateur `persona_app`, mot de passe `PERSONA_DB_PASSWORD` du `.env` |
-| `SMTP Persona` | le code d'inscription et les newsletters | Mailpit (host `mailpit`, port 1025) |
-| `LLM Persona` | Gemini | la clé `GEMINI_API_KEY` du `.env` |
-
-n8n utilise `persona_app` et pas le compte admin : même si un attaquant détourne une requête,
-il ne peut pas supprimer de tables.
-
-`setup.sh` ne modifie jamais `Postgres Persona` et `SMTP Persona` une fois créés. `LLM Persona`
-est mis à jour à chaque lancement si `GEMINI_API_KEY` est rempli.
-
-Pour envoyer de vrais emails, modifier `SMTP Persona` dans n8n (_Credentials_). Avec Gmail :
-host `smtp.gmail.com`, port 465, SSL/TLS activé, l'adresse Gmail comme utilisateur et un
-[mot de passe d'application](https://myaccount.google.com/apppasswords) comme mot de passe.
-Changer aussi l'adresse d'expéditeur dans les nœuds `Envoyer le code` et `Envoyer la newsletter`.
-
-Le schéma de la base est dans un seul fichier, `db/schema/02-schema.sql`. Docker le lance à la
-création de la base, et `setup.sh` le relance à chaque fois : une base existante reçoit les
-nouvelles tables et colonnes sans perdre ses données.
 
 ## Travailler à deux
 
-Les workflows se modifient dans n8n, puis s'exportent dans le dossier `workflows/` pour Git :
+Les workflows se modifient dans n8n, puis s'exportent un par un dans le dossier `workflows/` :
 
 ```bash
-bash scripts/export.sh        # exporte chaque workflow dans son fichier, puis le nettoie
-git diff workflows/           # vérifier ce qui a changé
-git add workflows && git commit -m "..." && git push
+docker compose exec n8n n8n export:workflow --id=PersonaChatEntr1 --output=/home/node/exports/a_chat_entree.json
+python3 scripts/sanitize.py workflows/
+git diff workflows/
 ```
 
-`export.sh` lance `scripts/sanitize.py`, qui retire ce qui ne doit pas aller dans Git (données
-épinglées, en-têtes sensibles) et signale les secrets probables. Il fait aussi pointer chaque
-nœud vers les credentials communs : chez l'autre, il n'y a rien à reconfigurer après un import.
+| Workflow | id | Fichier |
+|---|---|---|
+| `[A] Chat - Entrée` | `PersonaChatEntr1` | `a_chat_entree.json` |
+| `[A] Chat - Agent` | `PersonaChatAgnt1` | `a_chat_agent.json` |
+| `[A] Chat - Intention` | `PersonaChatIntn1` | `a_chat_intention.json` |
+| `[B] News - Collecte` | `A9xKmMDsv9dQsZpq` | `b_news_collecte.json` |
+| `[B] News - Envoi` | `MxsOXhU0nqsS2pkj` | `b_news_envoi.json` |
+| `[B] News - Désinscription` | `7tqdTDCdDhXdIczI` | `b_news_desinscription.json` |
+| `[Commun] Maintenance RGPD` | `7yCxC8evf0nnA0KJ` | `commun_maintenance_RGPD.json` |
+
+Ne pas utiliser `--all --separate` : n8n nommerait les fichiers d'après l'id (`PersonaChatEntr1.json`)
+et on aurait deux fichiers pour le même workflow.
+
+`sanitize.py` est obligatoire avant chaque commit. Il retire ce qui ne doit pas aller dans Git
+(données épinglées, en-têtes sensibles), signale les secrets probables, et remet aux credentials
+leur nom d'équipe pour que l'étape 3 marche chez l'autre.
 
 À chaque PR, la CI de GitHub (`.github/workflows/ci.yml`) relance `sanitize.py` et les tests. La PR
 passe en rouge si un workflow n'a pas été nettoyé, contient un secret, ou si un test échoue.
 
-Pour récupérer le travail de l'autre : `git pull` puis `bash scripts/setup.sh --import`. Le
-script met aussi la base à jour, et republie les workflows.
-
 ## Conventions d'équipe
 
 **Workflows** : le préfixe indique qui s'en occupe (`[A]`, `[B]`, `[Commun]`). Un workflow par
-fichier dans `workflows/`, jamais deux fichiers avec le même id (`setup.sh` refuse d'importer).
+fichier dans `workflows/`.
 
-**Credentials** : seulement les trois credentials communs (`Postgres Persona`, `SMTP Persona`,
-`LLM Persona`). Ne pas en créer d'autres de ces types : `sanitize.py` les remplacerait par les
-communs.
+**Credentials** : seulement les trois credentials de l'étape 2, avec ces noms exacts, jamais de nom
+ou d'email perso.
 
 **Nœuds** : chaque nœud a un nom avec un verbe (`Vérifier la session`, `Préparer le code`…),
 jamais `Postgres1` ou `Code3`.
@@ -160,8 +188,7 @@ du nœud Postgres), jamais de concaténation : c'est ce qui protège de l'inject
 | `[B] News - Désinscription` | `b_news_desinscription.json` | lien `/unsubscribe` des emails | Postgres |
 | `[Commun] Maintenance RGPD` | `commun_maintenance_RGPD.json` | tous les jours à 3 h | Postgres |
 
-`[B] News - Envoi` n'est pas publié par défaut. Pour recevoir les newsletters dans Mailpit : l'ouvrir
-dans n8n et le publier.
+L'ordre de publication est à l'étape 4 de [Lancer le projet](#lancer-le-projet).
 
 ### `[A] Chat - Entrée`
 

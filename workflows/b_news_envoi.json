@@ -1,4 +1,6 @@
 {
+  "updatedAt": "2026-10-27T14:56:16.261Z",
+  "createdAt": "2026-10-27T14:10:09.152Z",
   "id": "MxsOXhU0nqsS2pkj",
   "name": "[B] News - Envoi",
   "description": null,
@@ -385,5 +387,15 @@
   "meta": {
     "templateCredsSetupCompleted": true
   },
-  "tags": []
+  "nodeGroups": [],
+  "versionId": "d6777e0c-7fa2-4fe6-8790-9da4da124211",
+  "activeVersionId": null,
+  "versionCounter": 59,
+  "triggerCount": 0,
+  "sourceWorkflowId": null,
+  "tags": [],
+  "versionMetadata": {
+    "name": null,
+    "description": null
+  }
 }
