@@ -1,6 +1,4 @@
 {
-  "updatedAt": "2026-10-27T14:56:16.261Z",
-  "createdAt": "2026-10-27T14:10:09.152Z",
   "id": "MxsOXhU0nqsS2pkj",
   "name": "[B] News - Envoi",
   "description": null,
@@ -44,7 +42,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       }
     },
@@ -67,7 +65,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       }
     },
@@ -124,7 +122,7 @@
       "credentials": {
         "smtp": {
           "id": "jS2Eif9DDVW1DYQd",
-          "name": "smtp (à configurer)"
+          "name": "SMTP Persona"
         }
       }
     },
@@ -196,7 +194,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       }
     },
@@ -267,7 +265,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       }
     }
@@ -387,15 +385,5 @@
   "meta": {
     "templateCredsSetupCompleted": true
   },
-  "nodeGroups": [],
-  "versionId": "d6777e0c-7fa2-4fe6-8790-9da4da124211",
-  "activeVersionId": null,
-  "versionCounter": 59,
-  "triggerCount": 0,
-  "sourceWorkflowId": null,
-  "tags": [],
-  "versionMetadata": {
-    "name": null,
-    "description": null
-  }
+  "tags": []
 }

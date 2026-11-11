@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
 Nettoie les workflows n8n exportés avant commit / rendu.
-- remplace les noms de credentials par un nom générique.
+- fait pointer chaque nœud vers le credential commun de son type (même id et même nom chez
+  tout le monde), celui que scripts/setup.sh crée : rien à ré-associer après un import.
+  Un credential d'un autre type garde son id et prend un nom générique.
 - supprime les données épinglées (pinData), staticData et shared, qui peuvent contenir des données réelles.
 - vide les headers sensibles (Authorization, api key...).
 - signale les secrets probables ailleurs (webhooks Discord, clés API...) sans les modifier.
@@ -12,6 +14,15 @@ import json
 import re
 import sys
 from pathlib import Path
+
+# Credentials communs : mêmes ids que dans scripts/setup.sh, qui les crée s'ils manquent.
+# Ce sont les ids des credentials déjà utilisés par l'équipe : une installation existante
+# garde les siens (vrai serveur mail, clé Gemini), une installation neuve les reçoit.
+SHARED_CREDENTIALS = {
+    "postgres": ("NVYHYZPCSYpCPKph", "Postgres Persona"),
+    "smtp": ("jS2Eif9DDVW1DYQd", "SMTP Persona"),
+    "googlePalmApi": ("I6nWZedjVfgjuRJ9", "LLM Persona"),
+}
 
 SENSITIVE_HEADER = re.compile(r"authorization|api[-_]?key|token|secret|cookie|password", re.I)
 SECRET_PATTERNS = re.compile(r"discord(app)?\.com/api/webhooks/|AIza[0-9A-Za-z_-]{20,}|sk-[A-Za-z0-9_-]{20,}|Bearer\s+\S{10,}"
@@ -50,7 +61,10 @@ def sanitize(path: Path) -> list[str]:
                 warnings.append(f"  - {key} supprimé")
         for node in wf.get("nodes", []):
             for cred_type, cred in node.get("credentials", {}).items():
-                cred["name"] = f"{cred_type} (à configurer)"
+                if cred_type in SHARED_CREDENTIALS:
+                    cred["id"], cred["name"] = SHARED_CREDENTIALS[cred_type]
+                else:
+                    cred["name"] = f"{cred_type} (à configurer)"
             clean_headers(node, warnings)
             scan_secrets(node.get("parameters", {}), node["name"], warnings)
 

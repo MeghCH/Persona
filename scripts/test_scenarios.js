@@ -11,7 +11,7 @@ const fs = require('fs');
 
 // dossier des workflows : celui du conteneur n8n par défaut, ./workflows dans la CI GitHub
 const dossier = process.env.WORKFLOWS || '/home/node/exports';
-const collecte = JSON.parse(fs.readFileSync(dossier + '/b_news _collecte.json', 'utf8'));
+const collecte = JSON.parse(fs.readFileSync(dossier + '/b_news_collecte.json', 'utf8'));
 const envoi = JSON.parse(fs.readFileSync(dossier + '/b_news_envoi.json', 'utf8'));
 const entree = JSON.parse(fs.readFileSync(dossier + '/a_chat_entree.json', 'utf8'));
 const intention = JSON.parse(fs.readFileSync(dossier + '/a_chat_intention.json', 'utf8'));

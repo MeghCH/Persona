@@ -73,7 +73,9 @@ du compte efface bien tout (compte, préférences, sessions, feedback).
 ## Inscription et connexion guidées
 
 On tape `inscription` ou `connexion` et le chatbot pose les questions une par une. L'étape en
-cours est gardée 10 minutes dans `auth_pending`, sans le mot de passe.
+cours est gardée 10 minutes dans `auth_pending`. À l'inscription, on y garde aussi le hash du mot
+de passe et le hash du code envoyé par email, jamais leur valeur en clair (voir
+[code-inscription.md](code-inscription.md)).
 
 Testé :
 
@@ -86,8 +88,9 @@ Testé :
 - `annuler`, ou une étape vieille de plus de 10 minutes : l'étape est oubliée
 - l'ancienne commande incomplète (`inscription test a.a@gmail.com`) : renvoie vers le parcours guidé
 
-Le mot de passe n'est stocké nulle part en clair : seulement son hash bcrypt dans `users`. Il
-n'est pas envoyé à l'IA, ni écrit dans le journal, et le workflow n'enregistre pas ses exécutions.
+Le mot de passe n'est stocké nulle part en clair : seulement son hash bcrypt, dans `auth_pending`
+pendant l'inscription puis dans `users`. Il n'est pas envoyé à l'IA, ni écrit dans le journal, et
+le workflow n'enregistre pas ses exécutions (n8n les efface au plus tard une minute après).
 Sur la page de démo, il est masqué pendant la saisie et affiché `••••••••` une fois envoyé. La
 page de chat de n8n ne le masque pas, il faut donc utiliser la page de démo.
 

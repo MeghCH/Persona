@@ -1,6 +1,6 @@
 # Persona - Documentation RGPD
 
-Mise à jour : 3 novembre 2026
+Mise à jour : 11 novembre 2026
 
 Persona ne collecte que l'email, les centres d'intérêt et l'heure d'envoi de ses utilisateurs, les supprime automatiquement une fois leur durée de conservation dépassée, et trace chaque action sensible dans un journal.
 
@@ -37,15 +37,15 @@ Chaque donnée personnelle a une finalité, une base légale et une durée ; les
 | Compte | email, mot de passe haché (bcrypt), date et version du consentement, jeton de désinscription | identifier l'utilisateur, prouver son consentement | consentement | jusqu'à la suppression du compte, ou 6 mois après la désinscription | `users` |
 | Préférences | thèmes, heure et jours d'envoi, fuseau, ton, format, sources exclues, statut d'abonnement | personnaliser la newsletter | consentement | jusqu'à la suppression du compte, ou 6 mois après la désinscription | `preferences` |
 | Sessions du chat | identifiant de session, utilisateur, expiration | maintenir la connexion | sécurité du service | quelques heures, puis suppression nocturne | `sessions` |
-| Inscription en cours | identifiant de session, étape, email | guider l'inscription ou la connexion | consentement en cours de recueil | 1 heure | `auth_pending` |
+| Inscription en cours | identifiant de session, étape, email ; à l'inscription, mot de passe haché, code haché, nombre d'essais et d'envois du code | guider l'inscription ou la connexion | consentement en cours de recueil | 1 heure | `auth_pending` |
 | Historique des envois | utilisateur, articles envoyés, date | éviter les doublons, répondre aux demandes | intérêt légitime | 6 mois | `sent_newsletters` |
 | Retours | utilisateur, message | améliorer les newsletters | consentement | 1 an | `feedback` |
 | Journal de sécurité | type d'événement, identifiant utilisateur, détails, date | sécurité, preuve des désinscriptions et des nettoyages | intérêt légitime (sécurité) | 1 an | `audit_log` |
-| Historique d'exécution n8n | messages du chat, mots de passe saisis compris | débogage | intérêt légitime | à limiter à 24 h (configuration en cours) | base interne de n8n |
+| Historique d'exécution n8n | messages envoyés à l'agent (`[A] Chat - Agent`), emails et newsletters envoyés (`[B] News - Envoi`) ; rien pour `[A] Chat - Entrée` et `[A] Chat - Intention`, qui reçoivent les messages tapés dans le chat | débogage | intérêt légitime | 14 jours (réglage par défaut de n8n) ; Entrée et Intention : effacées au plus tard une minute après | base interne de n8n |
 
 Le journal ne stocke pas l'email mais l'identifiant de l'utilisateur : après la suppression d'un compte, ses lignes restent comme preuve mais ne permettent plus de l'identifier.
 
-Limite connue : les messages du chat, mots de passe compris, sont enregistrés en clair dans l'historique d'exécution de n8n. À corriger en désactivant l'enregistrement des exécutions réussies du workflow de chat et en limitant la conservation (`EXECUTIONS_DATA_MAX_AGE`).
+Historique d'exécution de n8n : `[A] Chat - Entrée`, qui reçoit les mots de passe, et `[A] Chat - Intention` n'enregistrent pas leurs exécutions. n8n les garde quand même, invisibles, jusqu'à son nettoyage suivant, réglé sur toutes les minutes (`EXECUTIONS_DATA_PRUNE_HARD_DELETE_INTERVAL` dans `docker-compose.yml`). Les autres workflows gardent leurs exécutions 14 jours (`EXECUTIONS_DATA_MAX_AGE`, 336 h par défaut) : à réduire si on veut garder moins longtemps les messages envoyés à l'agent et les emails des destinataires.
 
 ## Sous-traitants
 

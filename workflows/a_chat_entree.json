@@ -300,7 +300,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       },
       "alwaysOutputData": true
@@ -347,7 +347,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       },
       "alwaysOutputData": true
@@ -846,7 +846,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       },
       "alwaysOutputData": true
@@ -893,7 +893,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       },
       "alwaysOutputData": true
@@ -940,7 +940,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       },
       "alwaysOutputData": true
@@ -987,7 +987,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       },
       "alwaysOutputData": true
@@ -1034,7 +1034,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       },
       "alwaysOutputData": true
@@ -1117,7 +1117,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       },
       "alwaysOutputData": true
@@ -1164,7 +1164,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       },
       "alwaysOutputData": true
@@ -1234,7 +1234,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       },
       "alwaysOutputData": true
@@ -1304,7 +1304,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       },
       "alwaysOutputData": true
@@ -1351,7 +1351,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       },
       "alwaysOutputData": true
@@ -1424,7 +1424,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       },
       "alwaysOutputData": true
@@ -1628,7 +1628,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       },
       "alwaysOutputData": true
@@ -1811,7 +1811,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       },
       "alwaysOutputData": true
@@ -1890,7 +1890,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       },
       "alwaysOutputData": true,
@@ -1914,7 +1914,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       },
       "alwaysOutputData": true,
@@ -1987,8 +1987,8 @@
       "webhookId": "95adfcd2-7490-4474-ad97-41822fbc2707",
       "credentials": {
         "smtp": {
-          "id": "PersonaMailpit01",
-          "name": "smtp (à configurer)"
+          "id": "jS2Eif9DDVW1DYQd",
+          "name": "SMTP Persona"
         }
       },
       "onError": "continueErrorOutput",
@@ -2081,7 +2081,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       },
       "alwaysOutputData": true,
