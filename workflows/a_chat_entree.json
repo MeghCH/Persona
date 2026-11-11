@@ -7,6 +7,134 @@
   "nodes": [
     {
       "parameters": {
+        "content": "## Sortie\nMasque hash et UUID, coupe à 3000 caractères.",
+        "width": 280,
+        "height": 320,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        5180,
+        2280
+      ],
+      "id": "0840240c-048a-4989-95ca-dc6b6bf15b36",
+      "name": "Note Sortie"
+    },
+    {
+      "parameters": {
+        "content": "## ⑥ Inscription\nEmail, consentement, mot de passe, code par email, vérification du code.",
+        "width": 1680,
+        "height": 1740,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3380,
+        2780
+      ],
+      "id": "b1583dd9-84f1-4249-970e-65a9eaef14f3",
+      "name": "Note ⑥ Inscription"
+    },
+    {
+      "parameters": {
+        "content": "## ⑤ Connexion guidée\nEmail, puis mot de passe.",
+        "width": 1680,
+        "height": 620,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3380,
+        2140
+      ],
+      "id": "ce777522-3a31-4e93-80d9-4fb12bccf450",
+      "name": "Note ⑤ Connexion guidée"
+    },
+    {
+      "parameters": {
+        "content": "## ④ Agent IA (utilisateur connecté)\nFiltre anti-injection, journal, puis sous-workflow Agent.",
+        "width": 1680,
+        "height": 460,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3380,
+        1660
+      ],
+      "id": "ef30ca46-1500-42ab-936c-61389920f970",
+      "name": "Note ④ Agent IA (utilisateur connecté)"
+    },
+    {
+      "parameters": {
+        "content": "## ③ Compte et informations\nAide, confidentialité, déconnexion, suppression, export.",
+        "width": 1680,
+        "height": 1260,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3380,
+        380
+      ],
+      "id": "f55aaf97-1622-419f-85aa-270d7b119df6",
+      "name": "Note ③ Compte et informations"
+    },
+    {
+      "parameters": {
+        "content": "## ② Session, limiteur et interprétation IA\nRetrouve la session, compte les appels IA, puis laisse l'IA reformuler la phrase en une action autorisée.",
+        "width": 2460,
+        "height": 590,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        680,
+        -170
+      ],
+      "id": "c5fc0984-81b9-41d1-b77c-7ccb11baf641",
+      "name": "Note ② Session, limiteur et interprétation IA"
+    },
+    {
+      "parameters": {
+        "content": "## Connexion express\n« connexion email mdp » en une ligne.",
+        "width": 340,
+        "height": 310,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        680,
+        -500
+      ],
+      "id": "53c15815-a43e-4311-b398-42287b0d135b",
+      "name": "Note Connexion express"
+    },
+    {
+      "parameters": {
+        "content": "## ① Entrée\nNettoie le message, repère les commandes exactes, choisit le parcours.",
+        "width": 700,
+        "height": 420,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        -420
+      ],
+      "id": "b5641baf-2b33-408b-ad54-8c7b602b0d17",
+      "name": "Note ① Entrée"
+    },
+    {
+      "parameters": {
         "public": true,
         "mode": "hostedChat",
         "authentication": "none",
@@ -22,7 +150,7 @@
       "typeVersion": 1.5,
       "position": [
         0,
-        400
+        -160
       ],
       "id": "d83dd118-2609-5b80-9028-6568eee4c524",
       "name": "Recevoir le message",
@@ -36,7 +164,7 @@
       "typeVersion": 2,
       "position": [
         240,
-        400
+        -160
       ],
       "id": "d4f81609-a9fc-59e9-8ce8-c6bcc1f686e1",
       "name": "Analyser le message"
@@ -125,7 +253,7 @@
       "typeVersion": 3.2,
       "position": [
         480,
-        400
+        -160
       ],
       "id": "d93b909b-dc01-5e77-ac07-9f75f2553c56",
       "name": "Choisir le parcours"
@@ -147,8 +275,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        760,
-        40
+        4880,
+        -400
       ],
       "id": "f26b5e05-e405-5352-8f87-ba94ba8fd962",
       "name": "Répondre erreur de saisie"
@@ -164,8 +292,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        760,
-        360
+        720,
+        -300
       ],
       "id": "ffdfcaef-e1b7-5fb4-9b03-aba1331a2457",
       "name": "Vérifier les identifiants",
@@ -194,8 +322,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        1000,
-        360
+        4880,
+        -240
       ],
       "id": "38a799d9-2334-5e49-9f6b-e3e4678c71b7",
       "name": "Répondre connexion"
@@ -211,8 +339,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        760,
-        600
+        720,
+        40
       ],
       "id": "558b5c69-08f8-564a-a7fd-bdda9c387a75",
       "name": "Vérifier la session",
@@ -231,8 +359,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        880,
-        600
+        960,
+        40
       ],
       "id": "2a174bf0-0674-5e72-98eb-c5834aece422",
       "name": "Choisir l'étape"
@@ -264,6 +392,54 @@
               },
               "renameOutput": true,
               "outputKey": "anonymous"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "49f77d4a-883b-5c8f-93c3-fa5dc9d763f0",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "help",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "help"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "bfc9ae63-cd4a-5af9-9640-64b6831b203d",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "privacy",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "privacy"
             },
             {
               "conditions": {
@@ -371,30 +547,6 @@
                 },
                 "conditions": [
                   {
-                    "id": "49f77d4a-883b-5c8f-93c3-fa5dc9d763f0",
-                    "leftValue": "={{ $json.action }}",
-                    "rightValue": "help",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "help"
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 2
-                },
-                "conditions": [
-                  {
                     "id": "4c1fa26d-5090-52c5-833b-56abe4544cd5",
                     "leftValue": "={{ $json.action }}",
                     "rightValue": "chat",
@@ -419,30 +571,6 @@
                 },
                 "conditions": [
                   {
-                    "id": "da7f3a31-a676-5771-a88e-2377b9d33198",
-                    "leftValue": "={{ $json.action }}",
-                    "rightValue": "register_start",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "register_start"
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 2
-                },
-                "conditions": [
-                  {
                     "id": "8adb94a4-1216-5bc2-9ae4-33708eda3227",
                     "leftValue": "={{ $json.action }}",
                     "rightValue": "login_start",
@@ -456,102 +584,6 @@
               },
               "renameOutput": true,
               "outputKey": "login_start"
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 2
-                },
-                "conditions": [
-                  {
-                    "id": "718a4662-1bef-5d9b-873d-bd5b6af46106",
-                    "leftValue": "={{ $json.action }}",
-                    "rightValue": "cancel",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "cancel"
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 2
-                },
-                "conditions": [
-                  {
-                    "id": "88c79839-8476-5a1c-93a5-e1a8b9e86395",
-                    "leftValue": "={{ $json.action }}",
-                    "rightValue": "register_email",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "register_email"
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 2
-                },
-                "conditions": [
-                  {
-                    "id": "3dad626d-6852-5086-9321-c6411b532044",
-                    "leftValue": "={{ $json.action }}",
-                    "rightValue": "register_consent",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "register_consent"
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 2
-                },
-                "conditions": [
-                  {
-                    "id": "e3fc664e-ee96-5228-89bd-358c25461c0b",
-                    "leftValue": "={{ $json.action }}",
-                    "rightValue": "register_password",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "register_password"
             },
             {
               "conditions": {
@@ -611,9 +643,9 @@
                 },
                 "conditions": [
                   {
-                    "id": "bfc9ae63-cd4a-5af9-9640-64b6831b203d",
+                    "id": "da7f3a31-a676-5771-a88e-2377b9d33198",
                     "leftValue": "={{ $json.action }}",
-                    "rightValue": "privacy",
+                    "rightValue": "register_start",
                     "operator": {
                       "type": "string",
                       "operation": "equals"
@@ -623,7 +655,103 @@
                 "combinator": "and"
               },
               "renameOutput": true,
-              "outputKey": "privacy"
+              "outputKey": "register_start"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "88c79839-8476-5a1c-93a5-e1a8b9e86395",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "register_email",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "register_email"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "3dad626d-6852-5086-9321-c6411b532044",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "register_consent",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "register_consent"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "c9de2c1c-199f-402d-b615-7bd663aa9924",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "otp_resend",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "otp_resend"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "e3fc664e-ee96-5228-89bd-358c25461c0b",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "register_password",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "register_password"
             },
             {
               "conditions": {
@@ -659,9 +787,9 @@
                 },
                 "conditions": [
                   {
-                    "id": "c9de2c1c-199f-402d-b615-7bd663aa9924",
+                    "id": "718a4662-1bef-5d9b-873d-bd5b6af46106",
                     "leftValue": "={{ $json.action }}",
-                    "rightValue": "otp_resend",
+                    "rightValue": "cancel",
                     "operator": {
                       "type": "string",
                       "operation": "equals"
@@ -671,7 +799,7 @@
                 "combinator": "and"
               },
               "renameOutput": true,
-              "outputKey": "otp_resend"
+              "outputKey": "cancel"
             }
           ]
         },
@@ -680,8 +808,8 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        1000,
-        600
+        3200,
+        2440
       ],
       "id": "13fb43e1-ce6d-5858-83d4-883635dbbcc3",
       "name": "Choisir l'action connectée"
@@ -693,8 +821,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1280,
-        480
+        4880,
+        520
       ],
       "id": "5a579ac5-069a-543c-baaf-dd5cf0f275b6",
       "name": "Répondre non connecté"
@@ -710,8 +838,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        1280,
-        1400
+        3440,
+        2920
       ],
       "id": "61b59199-cc9f-5c58-9e52-b67ce91aec49",
       "name": "Démarrer l'inscription",
@@ -740,8 +868,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        1520,
-        1400
+        4880,
+        2920
       ],
       "id": "35a1f178-1850-5042-a832-17d211a828c5",
       "name": "Répondre démarrer l'inscription"
@@ -757,8 +885,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        1280,
-        1520
+        3440,
+        2280
       ],
       "id": "f0be94e9-a74e-59f1-9a07-4a28a1fffa65",
       "name": "Démarrer la connexion",
@@ -787,8 +915,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        1520,
-        1520
+        4880,
+        2280
       ],
       "id": "e0392024-e99f-51a5-b4eb-6a4af17aeceb",
       "name": "Répondre démarrer la connexion"
@@ -804,8 +932,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        1280,
-        1640
+        3440,
+        4360
       ],
       "id": "df1e0a52-0fbf-503a-9abf-45d54f20d759",
       "name": "Annuler l'étape",
@@ -834,8 +962,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        1520,
-        1640
+        4880,
+        4360
       ],
       "id": "5a2dd3b6-aab1-52df-944e-7eaeeebbd75f",
       "name": "Répondre annulation"
@@ -851,8 +979,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        1280,
-        1760
+        3440,
+        3080
       ],
       "id": "fc84aae6-2ace-5879-a521-d291164f205b",
       "name": "Enregistrer l'email (inscription)",
@@ -881,8 +1009,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        1520,
-        1760
+        4880,
+        3080
       ],
       "id": "1ef47aa4-7f01-5f02-800f-50ea56a78bef",
       "name": "Répondre email (inscription)"
@@ -898,8 +1026,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        1280,
-        1880
+        3440,
+        3240
       ],
       "id": "866987ae-9f13-5296-9fde-543563136cb6",
       "name": "Enregistrer le consentement",
@@ -928,8 +1056,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        1520,
-        1880
+        4880,
+        3240
       ],
       "id": "f4303836-de5e-5ecb-8da1-c10efff09311",
       "name": "Répondre consentement"
@@ -941,8 +1069,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1280,
-        2000
+        3440,
+        3720
       ],
       "id": "49669e08-e81f-5ed0-9285-b34d45f1f51a",
       "name": "Vérifier le mot de passe"
@@ -964,8 +1092,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        1760,
-        2080
+        4880,
+        3960
       ],
       "id": "ae838ecd-88ba-5ef4-9d9c-e534298f0725",
       "name": "Répondre mot de passe refusé"
@@ -981,8 +1109,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        1280,
-        2120
+        3440,
+        2440
       ],
       "id": "b784c121-6d21-59ff-a114-2c4fbbae588b",
       "name": "Enregistrer l'email (connexion)",
@@ -1011,8 +1139,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        1520,
-        2120
+        4880,
+        2440
       ],
       "id": "99c49801-ecfa-584a-bcfc-bf11cf0ed673",
       "name": "Répondre email (connexion)"
@@ -1028,8 +1156,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        1280,
-        2240
+        3440,
+        2600
       ],
       "id": "76ab6793-22da-5fe8-8d53-781d4b8762ad",
       "name": "Vérifier les identifiants (guidé)",
@@ -1058,8 +1186,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        1520,
-        2240
+        4880,
+        2600
       ],
       "id": "52ed1587-a49d-5980-96f6-e28050c16221",
       "name": "Répondre connexion (guidée)"
@@ -1081,8 +1209,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        1280,
-        2360
+        4880,
+        840
       ],
       "id": "e33730d3-c922-5655-ae97-012f2858ce04",
       "name": "Répondre politique de confidentialité"
@@ -1098,8 +1226,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        1280,
-        600
+        3440,
+        1000
       ],
       "id": "1fb4bf37-5f3f-58f8-811a-cf4c142a1d16",
       "name": "Fermer la session",
@@ -1128,8 +1256,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        1520,
-        600
+        4880,
+        1000
       ],
       "id": "8a6f8ecd-1650-5484-9163-92999b313ffc",
       "name": "Répondre déconnexion"
@@ -1151,8 +1279,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        1280,
-        720
+        4880,
+        1160
       ],
       "id": "bbaba133-4eed-5937-86db-b56a803e9652",
       "name": "Répondre demande de suppression"
@@ -1168,8 +1296,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        1280,
-        840
+        3440,
+        1320
       ],
       "id": "f60577c2-0693-5e64-b96a-65ec6b2d0eb4",
       "name": "Supprimer le compte",
@@ -1198,8 +1326,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        1520,
-        840
+        4880,
+        1320
       ],
       "id": "2b864706-fe6c-5cba-8f2a-863daa277902",
       "name": "Répondre suppression"
@@ -1215,8 +1343,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        1280,
-        960
+        3440,
+        1480
       ],
       "id": "02c8db70-c2ef-5ab1-90ca-72077594aacf",
       "name": "Exporter les données",
@@ -1245,8 +1373,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        1520,
-        960
+        4880,
+        1480
       ],
       "id": "2f0a6cde-1629-5989-bce2-c36ae376a147",
       "name": "Répondre export"
@@ -1258,8 +1386,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1280,
-        1080
+        4880,
+        680
       ],
       "id": "7ea5df9f-9465-5de1-9998-49ad009af0e6",
       "name": "Répondre aide"
@@ -1271,8 +1399,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1280,
-        1200
+        3440,
+        1800
       ],
       "id": "e0c26931-a731-5aba-82f0-c59744f5aa63",
       "name": "Filtrer l'injection"
@@ -1288,8 +1416,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        1520,
-        1200
+        3680,
+        1800
       ],
       "id": "9674333f-87ac-5d90-84a5-02073d8ed13a",
       "name": "Journaliser la tentative",
@@ -1328,8 +1456,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1760,
-        1200
+        3920,
+        1800
       ],
       "id": "0053cac3-d3a0-54eb-a02d-5c938e8d118e",
       "name": "Message autorisé ?"
@@ -1392,8 +1520,8 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        2000,
-        1160
+        4880,
+        1800
       ],
       "id": "606801e1-af0a-5576-9b61-66de6317875e",
       "name": "Appeler l'agent",
@@ -1416,8 +1544,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        2000,
-        1300
+        4880,
+        1960
       ],
       "id": "6d751c0a-0a08-53f6-993f-d4aa960cd511",
       "name": "Répondre message bloqué"
@@ -1429,8 +1557,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2280,
-        600
+        5240,
+        2440
       ],
       "id": "1e629666-2f71-5d6a-91bd-baa698be1488",
       "name": "Formater la réponse"
@@ -1442,8 +1570,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1120,
-        3040
+        1200,
+        40
       ],
       "id": "1bc67943-7680-517b-9005-8673f1b2f601",
       "name": "Faut-il limiter ?"
@@ -1475,8 +1603,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1360,
-        3040
+        1440,
+        40
       ],
       "id": "a436ec47-4604-538f-8b61-0b2526518bc4",
       "name": "Message pour l'IA ?"
@@ -1492,8 +1620,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        1600,
-        3040
+        1680,
+        40
       ],
       "id": "d5447b2a-d986-5b85-b271-7417a10a73cd",
       "name": "Compter les appels IA",
@@ -1512,8 +1640,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1840,
-        3040
+        1920,
+        40
       ],
       "id": "ce9448eb-ed10-5caf-b1df-1517a733457a",
       "name": "Contrôler le débit"
@@ -1545,8 +1673,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        2080,
-        3040
+        2160,
+        40
       ],
       "id": "c783a866-c6ad-5332-b791-f2815964bbfd",
       "name": "Débit autorisé ?"
@@ -1578,8 +1706,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        2560,
-        2920
+        2400,
+        40
       ],
       "id": "4e5b37b6-2ef3-5da2-a00b-b2893a6ac09b",
       "name": "Interpréter la phrase ?"
@@ -1631,8 +1759,8 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        2800,
-        2860
+        2640,
+        -40
       ],
       "id": "f0f19738-fd86-54c2-aefe-10da39613fff",
       "name": "Interpréter la demande",
@@ -1645,8 +1773,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3040,
-        2860
+        2880,
+        -40
       ],
       "id": "531d013e-e637-570a-a08c-a2cdf7c2cd11",
       "name": "Appliquer l'intention"
@@ -1658,8 +1786,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2800,
-        3000
+        2880,
+        140
       ],
       "id": "57789d74-7224-5122-9ef7-3bab2f0082a2",
       "name": "Garder l'action"
@@ -1675,8 +1803,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        2320,
-        3180
+        2400,
+        240
       ],
       "id": "d50d4e2d-df92-5dad-a946-6bd8478fa3de",
       "name": "Journaliser la limite",
@@ -1705,8 +1833,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        2560,
-        3180
+        4880,
+        240
       ],
       "id": "7ea7fa43-bd09-506a-ba62-1480e9126a00",
       "name": "Répondre trop de messages"
@@ -1738,8 +1866,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1520,
-        2000
+        3680,
+        3720
       ],
       "name": "Mot de passe accepté ?",
       "id": "071f71fe-904a-48d1-bd3b-8cb895ecce0e"
@@ -1755,8 +1883,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        1760,
-        1940
+        3920,
+        3720
       ],
       "name": "Préparer le code",
       "credentials": {
@@ -1779,8 +1907,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        1280,
-        2600
+        3920,
+        3560
       ],
       "name": "Renvoyer le code",
       "credentials": {
@@ -1819,8 +1947,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        2000,
-        1940
+        4160,
+        3640
       ],
       "name": "Code à envoyer ?",
       "id": "7b2e2ff0-b9cf-4686-9c7e-632d3b3eba7a"
@@ -1832,8 +1960,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2240,
-        1880
+        4400,
+        3560
       ],
       "name": "Écrire l'email",
       "id": "338e60c2-5c09-47cc-97b2-2b5c1446ccd5"
@@ -1852,8 +1980,8 @@
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        2480,
-        1880
+        4640,
+        3560
       ],
       "name": "Envoyer le code",
       "webhookId": "95adfcd2-7490-4474-ad97-41822fbc2707",
@@ -1883,8 +2011,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        2720,
-        1820
+        4880,
+        3480
       ],
       "name": "Répondre code envoyé",
       "id": "961026dc-c9ea-4815-9f48-99049e9c39fb"
@@ -1906,8 +2034,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        2720,
-        1960
+        4880,
+        3640
       ],
       "name": "Répondre email non envoyé",
       "id": "0286834e-8a53-48ee-8442-ec48c360edbb"
@@ -1929,8 +2057,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        2240,
-        2020
+        4880,
+        3800
       ],
       "name": "Répondre renvoi refusé",
       "id": "9d4f2c6e-c06b-414e-ae19-7d3a01092626"
@@ -1946,8 +2074,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        1280,
-        2480
+        3440,
+        4200
       ],
       "name": "Vérifier le code",
       "credentials": {
@@ -1966,8 +2094,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1520,
-        2480
+        4880,
+        4200
       ],
       "name": "Répondre code",
       "id": "29a527e0-75a5-4967-a110-5ccb181fd85f"
@@ -2087,6 +2215,20 @@
         ],
         [
           {
+            "node": "Répondre aide",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Répondre politique de confidentialité",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Fermer la session",
             "type": "main",
             "index": 0
@@ -2115,13 +2257,6 @@
         ],
         [
           {
-            "node": "Répondre aide",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
             "node": "Filtrer l'injection",
             "type": "main",
             "index": 0
@@ -2129,42 +2264,7 @@
         ],
         [
           {
-            "node": "Démarrer l'inscription",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
             "node": "Démarrer la connexion",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Annuler l'étape",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Enregistrer l'email (inscription)",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Enregistrer le consentement",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Vérifier le mot de passe",
             "type": "main",
             "index": 0
           }
@@ -2185,7 +2285,35 @@
         ],
         [
           {
-            "node": "Répondre politique de confidentialité",
+            "node": "Démarrer l'inscription",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enregistrer l'email (inscription)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enregistrer le consentement",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Renvoyer le code",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Vérifier le mot de passe",
             "type": "main",
             "index": 0
           }
@@ -2199,7 +2327,7 @@
         ],
         [
           {
-            "node": "Renvoyer le code",
+            "node": "Annuler l'étape",
             "type": "main",
             "index": 0
           }
