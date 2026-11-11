@@ -83,7 +83,7 @@ Ce qui reste protégé :
 docker compose exec -T n8n node - < scripts/test_scenarios.js
 ```
 
-55 tests en tout, tous passent. Ils lancent le vrai code des nœuds :
+Ces tests lancent le vrai code des nœuds :
 
 - quels messages partent vers l'IA (et le mot de passe n'y va jamais)
 - chaque limite, et le cas où les non connectés ont tout utilisé mais un connecté passe encore

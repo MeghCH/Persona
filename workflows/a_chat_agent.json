@@ -74,7 +74,7 @@
       "credentials": {
         "googlePalmApi": {
           "id": "I6nWZedjVfgjuRJ9",
-          "name": "googlePalmApi (à configurer)"
+          "name": "LLM Persona"
         }
       }
     },
@@ -114,7 +114,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       }
     },
@@ -139,7 +139,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       }
     },
@@ -164,7 +164,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       }
     },
@@ -189,7 +189,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       }
     },
@@ -214,7 +214,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       }
     },
@@ -239,7 +239,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       }
     },
@@ -264,7 +264,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       }
     },
@@ -289,7 +289,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       }
     }

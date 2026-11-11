@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Nettoie les workflows n8n exportés avant commit / rendu.
-- remplace les noms de credentials par un nom générique.
+- donne aux credentials leur nom d'équipe (Postgres Persona, SMTP Persona, LLM Persona) : à
+  l'import, n8n rattache chaque nœud au credential qui porte ce nom.
 - supprime les données épinglées (pinData), staticData et shared, qui peuvent contenir des données réelles.
 - vide les headers sensibles (Authorization, api key...).
 - signale les secrets probables ailleurs (webhooks Discord, clés API...) sans les modifier.
@@ -12,6 +13,8 @@ import json
 import re
 import sys
 from pathlib import Path
+
+CREDENTIAL_NAMES = {"postgres": "Postgres Persona", "smtp": "SMTP Persona", "googlePalmApi": "LLM Persona"}
 
 SENSITIVE_HEADER = re.compile(r"authorization|api[-_]?key|token|secret|cookie|password", re.I)
 SECRET_PATTERNS = re.compile(r"discord(app)?\.com/api/webhooks/|AIza[0-9A-Za-z_-]{20,}|sk-[A-Za-z0-9_-]{20,}|Bearer\s+\S{10,}"
@@ -50,7 +53,7 @@ def sanitize(path: Path) -> list[str]:
                 warnings.append(f"  - {key} supprimé")
         for node in wf.get("nodes", []):
             for cred_type, cred in node.get("credentials", {}).items():
-                cred["name"] = f"{cred_type} (à configurer)"
+                cred["name"] = CREDENTIAL_NAMES.get(cred_type, f"{cred_type} (à configurer)")
             clean_headers(node, warnings)
             scan_secrets(node.get("parameters", {}), node["name"], warnings)
 

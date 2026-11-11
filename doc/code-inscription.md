@@ -32,7 +32,8 @@ Tout se passe dans `[A] Chat - Entrée`, en SQL, sans l'IA :
 - **Code vraiment aléatoire** : il vient de `gen_random_bytes` (PostgreSQL), pas de `random()`
   qu'on peut prévoir.
 - **Code jamais en clair** : seulement son hash dans `auth_pending`. Il n'est ni dans le chat, ni
-  dans `audit_log`, ni envoyé à l'IA. Le workflow n'enregistre pas ses exécutions.
+  dans `audit_log`, ni envoyé à l'IA. Le workflow n'enregistre pas ses exécutions : n8n les
+  efface au plus tard une minute après (voir le README).
 - **10 minutes et 5 essais** : après, il faut recommencer. Deviner un code sur un million en
   5 essais n'a quasiment aucune chance de marcher.
 - **3 codes au maximum** par inscription, pour qu'on ne puisse pas remplir la boîte mail de
@@ -55,11 +56,9 @@ au bout d'une heure, comme avant.
 `docker-compose.yml` lance Mailpit, une fausse boîte mail. Tous les emails envoyés à Mailpit
 s'affichent sur http://localhost:8025, rien ne part vraiment.
 
-Dans n8n, le nœud `Envoyer le code` a besoin d'un credential SMTP :
-
-- pour tester : un credential SMTP nommé `SMTP Mailpit`, Host `mailpit`, Port `1025`, SSL/TLS
-  désactivé, sans utilisateur ni mot de passe
-- pour de vrai : `SMTP Persona`, le même que la newsletter de B
+Le nœud `Envoyer le code` utilise le credential `SMTP Persona`, le même que la newsletter de B.
+Pour tester, le régler sur Mailpit (host `mailpit`, port 1025, sans SSL ni mot de passe) ; pour
+envoyer de vrais emails, sur Gmail. Les deux réglages sont à l'étape 2 du README.
 
 ## Tests
 

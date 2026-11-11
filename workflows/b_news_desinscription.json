@@ -120,7 +120,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       }
     },
@@ -246,7 +246,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       }
     },
@@ -293,7 +293,7 @@
       "credentials": {
         "postgres": {
           "id": "NVYHYZPCSYpCPKph",
-          "name": "postgres (à configurer)"
+          "name": "Postgres Persona"
         }
       }
     }
