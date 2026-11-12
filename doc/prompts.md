@@ -28,13 +28,17 @@ newsletter et celle de son dernier avis. `Choisir le prompt` en déduit l'étape
    réglage qui va avec (« trop long » = format titres).
 5. **suivi** : tout le reste. L'agent répond à la demande, sans rien proposer de plus.
 
-Le prompt final est fait de 4 morceaux :
+Le prompt final est fait de 5 morceaux :
 
 - la base commune : le rôle, les règles de sécurité et les valeurs autorisées, identiques à
   toutes les étapes
 - le bloc de l'étape : l'objectif, l'outil à utiliser et la prochaine étape
+- la date et l'heure du jour, dans le fuseau de l'utilisateur : Gemini ne les connaît pas
 - les préférences actuelles (sujets, jours, heure, ton, format, dernière newsletter), pour que
-  l'agent n'ait pas besoin d'appeler `lire_preferences` à chaque message
+  l'agent n'ait pas besoin d'appeler `lire_preferences` à chaque message. On y ajoute le
+  prochain envoi prévu, calculé par le code avec la même règle que `[B] News - Envoi` (un
+  passage par heure, à l'heure pile, les jours choisis) : Gemini se trompe quand il compte les
+  jours lui-même
 - le ton : tutoiement si l'utilisateur a choisi le ton décontracté, vouvoiement sinon
 
 Exemple de parcours : un nouvel inscrit écrit « salut », l'agent lui demande ses sujets (étape
@@ -49,7 +53,9 @@ newsletter de B, il passe à l'étape 3.
   affiche.
 - **abonné** (connecté) : le mot seul. Pour un abonné, la réponse vient de l'agent, ou d'une
   phrase fixe pour les actions (déconnexion, mes données…). Rédiger une réponse ici ne servait
-  à rien.
+  à rien. Une seule exception : `aide`. `Répondre aide` affiche la réponse de Gemini, connecté
+  ou non. Pour ce mot, l'abonné reçoit donc une réponse courte qui ne cite que ce que le service
+  sait faire.
 
 Si la valeur `connecte` est absente ou inconnue, on prend le prompt visiteur, qui ne promet
 aucune action.
@@ -68,13 +74,19 @@ n8n du nœud `Choisir le prompt`.
   - pour savoir quoi que ce soit sur l'utilisateur, il devait appeler `lire_preferences`, ce qui
     fait un aller-retour de plus avec Gemini, compté dans le quota de 20 requêtes par jour ;
   - il parlait de la même façon à tout le monde, alors que l'utilisateur choisit un ton.
-- **v2** (cette branche) : la base de v1, plus un bloc par étape, les préférences dans le
-  prompt et le ton de l'utilisateur.
+- **v2** (12/11) : la base de v1, plus un bloc par étape, les préférences dans le prompt et le
+  ton de l'utilisateur.
 - **v2, réglage du modèle** (12/11) : en testant v2 dans la bulle, une réponse s'arrêtait au
   milieu d'une phrase. L'exécution n8n montrait `MAX_TOKENS` : sur les 600 tokens autorisés,
   Gemini 3 en avait utilisé 577 pour réfléchir et 23 pour répondre. La limite passe à 2048 pour
   l'agent, et de 256 à 1024 pour l'intention, qui avait le même problème. Le prompt ne
   changeait rien : c'était le réglage du modèle.
+- **v2, date du jour** (12/11) : à l'étape 2, l'agent devait dire quand partirait la première
+  newsletter, mais le prompt ne lui donnait ni la date ni le jour. Il ne pouvait que l'inventer.
+  Le prompt donne maintenant la date et l'heure dans le fuseau de l'utilisateur, plus le
+  prochain envoi calculé par le code, et l'étape 2 interdit à Gemini de calculer une date
+  lui-même. La date de la dernière newsletter est aussi écrite dans le fuseau de l'utilisateur
+  (elle l'était en `Europe/Paris`).
 
 **Intention**
 
@@ -86,7 +98,9 @@ n8n du nœud `Choisir le prompt`.
   - les deux cas étaient dans un seul texte, difficile à relire et impossible à tester sans
     lancer n8n ;
   - pour un abonné, Gemini écrivait le plus souvent une réponse que personne n'affiche.
-- **v3** (cette branche) : deux prompts séparés, choisis par le code et testés.
+- **v3** (12/11) : deux prompts séparés, choisis par le code et testés. L'abonné garde une
+  réponse rédigée pour `aide` seulement : sans elle, « tu sais faire quoi ? » retombait sur la
+  phrase fixe, alors que v2 avait justement été faite pour éviter les phrases fixes.
 
 ## Tester une nouvelle version
 
@@ -100,7 +114,7 @@ n8n du nœud `Choisir le prompt`.
    - « mets ma newsletter en pause », puis « salut » : il propose de la reprendre
    - après une newsletter reçue, « merci » : il demande ce qu'on en a pensé
 
-Les 19 tests du choix de prompt vérifient :
+Les 30 tests du choix de prompt vérifient :
 
 - la bonne étape dans chaque cas (pas de sujets, rien reçu, newsletter récente ou ancienne, avis
   donné, pause, préférences absentes) ;
@@ -108,5 +122,7 @@ Les 19 tests du choix de prompt vérifient :
 - la prochaine étape annoncée ;
 - les règles de sécurité gardées à chaque étape ;
 - les préférences et le ton dans le prompt ;
+- la date du jour et le prochain envoi (heure passée ou non, semaine suivante, pause, autre
+  fuseau, fuseau inconnu), avec une date fixée dans le test pour qu'il ne dépende pas du jour ;
 - le message de l'utilisateur jamais mélangé au prompt ;
-- le bon prompt d'intention (visiteur, abonné, valeur inconnue).
+- le bon prompt d'intention (visiteur, abonné, `aide` pour l'abonné, valeur inconnue).

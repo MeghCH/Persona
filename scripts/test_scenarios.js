@@ -499,10 +499,20 @@ console.log("\n--- Chat : un prompt par étape");
 
 const agent = JSON.parse(fs.readFileSync(dossier + '/a_chat_agent.json', 'utf8'));
 const MESSAGE = 'message-de-test-42';
-function promptAgent(prefs) {
+// « maintenant » (optionnel) fixe la date vue par le nœud, pour que le test ne dépende pas du jour.
+function promptAgent(prefs, maintenant) {
   const $ = () => ({ first: () => ({ json: { message: MESSAGE, user_id: 'u1' } }) });
-  return lancerNoeud(agent, 'Choisir le prompt', { $, $input: { first: () => ({ json: prefs }) } })[0].json;
+  const variables = { $, $input: { first: () => ({ json: prefs }) } };
+  if (maintenant) {
+    const fixe = new Date(maintenant).getTime();
+    variables.Date = class extends Date {
+      constructor(...a) { super(...(a.length ? a : [fixe])); }
+      static now() { return fixe; }
+    };
+  }
+  return lancerNoeud(agent, 'Choisir le prompt', variables)[0].json;
 }
+const ligne = (prompt, debut) => prompt.split('\n').find(l => l.startsWith(debut)) || '(absente)';
 const ilYa = (jours) => new Date(Date.now() - jours * 24 * 3600 * 1000).toISOString();
 const PREFS = { interests: ['sport', 'espace'], send_hour: 8, send_days: [1, 3], timezone: 'Europe/Paris',
   tone: 'neutre', format: 'resume', max_articles: 5, excluded_sources: [], is_active: true,
@@ -549,6 +559,38 @@ verifier("l'agent prend son prompt dans « Choisir le prompt »",
     + agent.nodes.find(n => n.name === 'Agent Persona').parameters.options.systemMessage,
   'Agent Persona | ={{ $json.prompt }}');
 
+// Scénario : Gemini ne connaît pas la date. Sans elle, il invente le jour de la première newsletter.
+const JEUDI = '2026-11-12T13:30:00Z'; // jeudi 12 novembre, 14 h 30 à Paris
+verifier('la date du jour est dans le prompt, dans le fuseau de l\'utilisateur',
+  ligne(promptAgent(avec({}), JEUDI).prompt, 'Nous sommes'), 'Nous sommes le jeudi 12 novembre, il est 14 h (Europe/Paris).');
+verifier('un autre fuseau donne une autre date (vendredi 4 h à Paris = jeudi 22 h à New York)',
+  ligne(promptAgent(avec({ timezone: 'America/New_York' }), '2026-11-13T03:00:00Z').prompt, 'Nous sommes'),
+  'Nous sommes le jeudi 12 novembre, il est 22 h (America/New_York).');
+verifier("prochain envoi : l'heure est passée aujourd'hui, donc le prochain jour choisi",
+  ligne(promptAgent(avec({ send_days: [1, 3], send_hour: 8 }), JEUDI).prompt, '- prochain envoi'),
+  '- prochain envoi prévu : lundi 16 novembre à 8 h');
+verifier("prochain envoi : aujourd'hui, si l'heure n'est pas encore passée",
+  ligne(promptAgent(avec({ send_days: [4], send_hour: 18 }), JEUDI).prompt, '- prochain envoi'),
+  '- prochain envoi prévu : jeudi 12 novembre à 18 h');
+verifier("prochain envoi : seul jour choisi = aujourd'hui, heure passée, donc la semaine d'après",
+  ligne(promptAgent(avec({ send_days: [4], send_hour: 8 }), JEUDI).prompt, '- prochain envoi'),
+  '- prochain envoi prévu : jeudi 19 novembre à 8 h');
+verifier("prochain envoi : à 14 h 30, le passage de 14 h est déjà fait",
+  ligne(promptAgent(avec({ send_days: [4, 5], send_hour: 14 }), JEUDI).prompt, '- prochain envoi'),
+  '- prochain envoi prévu : vendredi 13 novembre à 14 h');
+verifier('newsletter en pause : aucun envoi annoncé',
+  ligne(promptAgent(avec({ is_active: false }), JEUDI).prompt, '- prochain envoi'),
+  '- prochain envoi prévu : aucun, la newsletter est en pause');
+verifier('dernière newsletter : la date est celle du fuseau de l\'utilisateur',
+  ligne(promptAgent(avec({ timezone: 'America/New_York', derniere_newsletter: '2026-11-10T02:00:00Z' }), JEUDI).prompt,
+    '- dernière newsletter'), '- dernière newsletter reçue : 09/11/2026');
+// Scénario : Postgres accepte un fuseau que Node ne connaît pas. Le nœud ne doit pas planter.
+verifier('fuseau inconnu : Europe/Paris, sans planter',
+  ligne(promptAgent(avec({ timezone: 'Pas/UnFuseau' }), JEUDI).prompt, 'Nous sommes'),
+  'Nous sommes le jeudi 12 novembre, il est 14 h (Europe/Paris).');
+verifier("étape 2 : l'agent reprend le prochain envoi calculé, il ne calcule pas de date",
+  parEtape.premier_envoi.prompt.includes('Ne calcule jamais une date toi-même'), true);
+
 const promptIntention = (connecte) => lancerNoeud(intention, 'Choisir le prompt',
   { $input: { first: () => ({ json: { message: 'bonjour', connecte } }) } })[0].json;
 const visiteur = promptIntention('non');
@@ -558,8 +600,12 @@ verifier('intention : un prompt pour le visiteur, un autre pour l\'abonné',
 verifier('intention : les deux prompts donnent la même liste de mots',
   ['inscription', 'connexion', 'deconnexion', 'mes_donnees', 'supprimer_compte', 'confidentialite', 'aide', 'annuler', 'aucune']
     .every(m => visiteur.prompt.includes(m + ' :') && abonne.prompt.includes(m + ' :')), true);
-verifier("intention : seul le visiteur reçoit une réponse rédigée, l'abonné a déjà l'agent",
-  [visiteur.prompt.includes('Lignes suivantes'), abonne.prompt.includes('Lignes suivantes')].join(','), 'true,false');
+verifier('intention : le visiteur reçoit toujours une réponse rédigée', visiteur.prompt.includes('Lignes suivantes'), true);
+// Scénario : un abonné écrit « tu sais faire quoi ? ». « Répondre aide » affiche la réponse de Gemini :
+// sans elle, il retombe sur la phrase fixe.
+verifier("intention : l'abonné reçoit une réponse rédigée pour « aide », et pour rien d'autre",
+  [abonne.prompt.includes('Si ce mot est « aide », ajoute'), abonne.prompt.includes("Pour tous les autres mots, n'écris rien")].join(','),
+  'true,true');
 // Scénario : « connecte » est absent ou bizarre. On prend le prompt visiteur, qui ne promet rien.
 verifier('intention : une valeur inconnue donne le prompt visiteur', promptIntention('peut-être').profil, 'visiteur');
 

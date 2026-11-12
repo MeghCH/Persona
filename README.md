@@ -186,7 +186,8 @@ quand elles ne sont pas une commande exacte. Gemini classe la phrase dans une li
 `deconnexion`, `mes_donnees`, `supprimer_compte`, `confidentialite`, `aide`, `annuler`, `aucune`).
 Il y a deux prompts, choisis par le nœud `Choisir le prompt` : pour un visiteur, Gemini écrit aussi
 une réponse courte et naturelle (sans lien), que le chatbot affiche à la place de sa phrase habituelle ;
-pour un abonné, il donne seulement le mot, puisque l'agent répond au reste. Gemini n'a aucun outil et ne voit
+pour un abonné, il donne seulement le mot, puisque l'agent répond au reste (sauf pour `aide`, où il
+rédige aussi la réponse). Gemini n'a aucun outil et ne voit
 jamais un mot de passe. Les étapes sensibles (inscription, mot de passe, suppression, politique de
 confidentialité) gardent leurs phrases fixes. Si Gemini ne répond pas, le chatbot garde sa phrase habituelle.
 
@@ -204,7 +205,8 @@ partie des thèmes de la collecte (`sport`, `technologie`…).
 Le prompt de l'agent change selon l'étape de l'utilisateur, lue en base par `Lire l'étape` : newsletter
 en pause, choisir ses sujets (1 sur 3), régler la première newsletter (2 sur 3), donner son avis
 (3 sur 3), ou tout est réglé. Chaque étape a son objectif et annonce la suivante. Le prompt contient
-aussi les préférences actuelles et suit le ton choisi par l'utilisateur. Les étapes et les versions
+aussi les préférences actuelles, la date du jour et le prochain envoi prévu (calculé par le code), et
+suit le ton choisi par l'utilisateur. Les étapes et les versions
 successives des prompts sont dans [doc/prompts.md](doc/prompts.md).
 
 Les protections et les tests sont détaillés dans [doc/audit-securite.md](doc/audit-securite.md).
