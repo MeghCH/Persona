@@ -183,9 +183,10 @@ de passe. Pour déboguer, on peut réactiver la sauvegarde dans les _Settings_ d
 
 Appelé par `[A] Chat - Entrée` pour les phrases courtes (200 caractères ou moins), connecté ou non,
 quand elles ne sont pas une commande exacte. Gemini classe la phrase dans une liste fermée (`inscription`, `connexion`,
-`deconnexion`, `mes_donnees`, `supprimer_compte`, `confidentialite`, `aide`, `annuler`, `aucune`),
-et écrit une réponse courte et naturelle (sans lien). Le chatbot l'affiche à la place de sa phrase
-habituelle quand on n'est pas connecté ou qu'on demande de l'aide. Gemini n'a aucun outil et ne voit
+`deconnexion`, `mes_donnees`, `supprimer_compte`, `confidentialite`, `aide`, `annuler`, `aucune`).
+Il y a deux prompts, choisis par le nœud `Choisir le prompt` : pour un visiteur, Gemini écrit aussi
+une réponse courte et naturelle (sans lien), que le chatbot affiche à la place de sa phrase habituelle ;
+pour un abonné, il donne seulement le mot, puisque l'agent répond au reste. Gemini n'a aucun outil et ne voit
 jamais un mot de passe. Les étapes sensibles (inscription, mot de passe, suppression, politique de
 confidentialité) gardent leurs phrases fixes. Si Gemini ne répond pas, le chatbot garde sa phrase habituelle.
 
@@ -199,6 +200,12 @@ Agent Gemini avec 8 outils : `lire_preferences`, `modifier_interets`, `modifier_
 L'identifiant de l'utilisateur vient de la session, jamais de l'IA : même si on manipule
 le modèle, il ne peut toucher qu'au compte connecté. Les centres d'intérêt doivent faire
 partie des thèmes de la collecte (`sport`, `technologie`…).
+
+Le prompt de l'agent change selon l'étape de l'utilisateur, lue en base par `Lire l'étape` : newsletter
+en pause, choisir ses sujets (1 sur 3), régler la première newsletter (2 sur 3), donner son avis
+(3 sur 3), ou tout est réglé. Chaque étape a son objectif et annonce la suivante. Le prompt contient
+aussi les préférences actuelles et suit le ton choisi par l'utilisateur. Les étapes et les versions
+successives des prompts sont dans [doc/prompts.md](doc/prompts.md).
 
 Les protections et les tests sont détaillés dans [doc/audit-securite.md](doc/audit-securite.md).
 
