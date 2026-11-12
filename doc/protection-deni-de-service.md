@@ -47,7 +47,8 @@ raison et par minute, pour qu'un attaquant ne puisse pas remplir le journal.
 
 - l'agent réessaie 2 fois au lieu de 3
 - chaque exécution est coupée au bout de 60 secondes (`executionTimeout`)
-- ce qui existait déjà : 1000 caractères par message, 600 tokens de réponse au maximum,
+- ce qui existait déjà : 1000 caractères par message, 2048 tokens de réponse au maximum pour
+  l'agent et 1024 pour l'intention (Gemini 3 compte sa réflexion dedans, voir `doc/prompts.md`),
   6 étapes d'outils au maximum, 8 messages gardés en mémoire
 
 ## Comprendre les phrases

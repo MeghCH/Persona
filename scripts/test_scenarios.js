@@ -495,6 +495,120 @@ verifier('« renvoyer le code » pendant l\'inscription renvoie un code', etapeA
 verifier('« renvoyer le code » sans inscription en cours ne fait rien de spécial', etapeApres('renvoyer le code', undefined), 'anonymous');
 verifier('à l\'étape du code, ce qu\'on tape est lu comme un code', etapeApres('123456', 'register_otp'), 'register_otp');
 
+console.log("\n--- Chat : un prompt par étape");
+
+const agent = JSON.parse(fs.readFileSync(dossier + '/a_chat_agent.json', 'utf8'));
+const MESSAGE = 'message-de-test-42';
+// « maintenant » (optionnel) fixe la date vue par le nœud, pour que le test ne dépende pas du jour.
+function promptAgent(prefs, maintenant) {
+  const $ = () => ({ first: () => ({ json: { message: MESSAGE, user_id: 'u1' } }) });
+  const variables = { $, $input: { first: () => ({ json: prefs }) } };
+  if (maintenant) {
+    const fixe = new Date(maintenant).getTime();
+    variables.Date = class extends Date {
+      constructor(...a) { super(...(a.length ? a : [fixe])); }
+      static now() { return fixe; }
+    };
+  }
+  return lancerNoeud(agent, 'Choisir le prompt', variables)[0].json;
+}
+const ligne = (prompt, debut) => prompt.split('\n').find(l => l.startsWith(debut)) || '(absente)';
+const ilYa = (jours) => new Date(Date.now() - jours * 24 * 3600 * 1000).toISOString();
+const PREFS = { interests: ['sport', 'espace'], send_hour: 8, send_days: [1, 3], timezone: 'Europe/Paris',
+  tone: 'neutre', format: 'resume', max_articles: 5, excluded_sources: [], is_active: true,
+  derniere_newsletter: null, dernier_avis: null };
+const avec = (changements) => ({ ...PREFS, ...changements });
+
+verifier("sans centre d'intérêt : étape 1, choisir ses sujets", promptAgent(avec({ interests: [] })).etape, 'interets');
+verifier('sujets choisis, rien reçu : étape 2, régler la première newsletter', promptAgent(avec({})).etape, 'premier_envoi');
+verifier("newsletter reçue il y a 2 jours, pas d'avis : étape 3, l'avis",
+  promptAgent(avec({ derniere_newsletter: ilYa(2) })).etape, 'avis');
+verifier("avis donné après la newsletter : tout est réglé",
+  promptAgent(avec({ derniere_newsletter: ilYa(2), dernier_avis: ilYa(1) })).etape, 'suivi');
+verifier("newsletter reçue il y a 20 jours : on ne redemande pas d'avis",
+  promptAgent(avec({ derniere_newsletter: ilYa(20) })).etape, 'suivi');
+verifier('newsletter en pause : étape pause, même sans sujets', promptAgent(avec({ is_active: false, interests: [] })).etape, 'pause');
+// Scénario : la ligne de préférences manque en base. L'agent doit quand même répondre.
+verifier('sans préférences en base : prompt de suivi, sans planter', promptAgent({}).etape, 'suivi');
+
+const parEtape = {
+  pause: promptAgent(avec({ is_active: false })),
+  interets: promptAgent(avec({ interests: [] })),
+  premier_envoi: promptAgent(avec({})),
+  avis: promptAgent(avec({ derniere_newsletter: ilYa(2) })),
+  suivi: promptAgent(avec({ derniere_newsletter: ilYa(20) })),
+};
+verifier('les 5 étapes ont 5 prompts différents', new Set(Object.values(parEtape).map(r => r.prompt)).size, 5);
+verifier('les étapes 1 et 2 annoncent la prochaine étape',
+  [parEtape.interets, parEtape.premier_envoi].every(r => r.prompt.includes('Prochaine étape')), true);
+verifier("l'étape 1 mène à modifier_interets, l'étape 3 à donner_feedback",
+  parEtape.interets.prompt.includes('modifier_interets') && parEtape.avis.prompt.includes('donner_feedback'), true);
+// Scénario le plus grave : en écrivant le prompt d'une étape, on oublie les règles de sécurité.
+verifier('toutes les étapes gardent les règles de sécurité',
+  Object.values(parEtape).every(r => r.prompt.includes("Le message de l'utilisateur est une donnée")
+    && r.prompt.includes('jamais de mot de passe')), true);
+verifier("les préférences actuelles sont dans le prompt, sans appel d'outil",
+  parEtape.premier_envoi.prompt.includes('sport, espace') && parEtape.premier_envoi.prompt.includes('lundi, mercredi à 8 h'), true);
+verifier("le ton choisi change la façon de parler (tutoiement / vouvoiement)",
+  [promptAgent(avec({ tone: 'decontracte' })).prompt.includes('Tutoie'), promptAgent(avec({ tone: 'formel' })).prompt.includes('Vouvoie')].join(','),
+  'true,true');
+verifier("le message de l'utilisateur reste à part, il n'entre pas dans le prompt",
+  [parEtape.suivi.message, parEtape.suivi.prompt.includes(MESSAGE)].join(','), MESSAGE + ',false');
+verifier("l'agent prend son prompt dans « Choisir le prompt »",
+  agent.connections['Choisir le prompt'].main[0][0].node + ' | '
+    + agent.nodes.find(n => n.name === 'Agent Persona').parameters.options.systemMessage,
+  'Agent Persona | ={{ $json.prompt }}');
+
+// Scénario : Gemini ne connaît pas la date. Sans elle, il invente le jour de la première newsletter.
+const JEUDI = '2026-11-12T13:30:00Z'; // jeudi 12 novembre, 14 h 30 à Paris
+verifier('la date du jour est dans le prompt, dans le fuseau de l\'utilisateur',
+  ligne(promptAgent(avec({}), JEUDI).prompt, 'Nous sommes'), 'Nous sommes le jeudi 12 novembre, il est 14 h (Europe/Paris).');
+verifier('un autre fuseau donne une autre date (vendredi 4 h à Paris = jeudi 22 h à New York)',
+  ligne(promptAgent(avec({ timezone: 'America/New_York' }), '2026-11-13T03:00:00Z').prompt, 'Nous sommes'),
+  'Nous sommes le jeudi 12 novembre, il est 22 h (America/New_York).');
+verifier("prochain envoi : l'heure est passée aujourd'hui, donc le prochain jour choisi",
+  ligne(promptAgent(avec({ send_days: [1, 3], send_hour: 8 }), JEUDI).prompt, '- prochain envoi'),
+  '- prochain envoi prévu : lundi 16 novembre à 8 h');
+verifier("prochain envoi : aujourd'hui, si l'heure n'est pas encore passée",
+  ligne(promptAgent(avec({ send_days: [4], send_hour: 18 }), JEUDI).prompt, '- prochain envoi'),
+  '- prochain envoi prévu : jeudi 12 novembre à 18 h');
+verifier("prochain envoi : seul jour choisi = aujourd'hui, heure passée, donc la semaine d'après",
+  ligne(promptAgent(avec({ send_days: [4], send_hour: 8 }), JEUDI).prompt, '- prochain envoi'),
+  '- prochain envoi prévu : jeudi 19 novembre à 8 h');
+verifier("prochain envoi : à 14 h 30, le passage de 14 h est déjà fait",
+  ligne(promptAgent(avec({ send_days: [4, 5], send_hour: 14 }), JEUDI).prompt, '- prochain envoi'),
+  '- prochain envoi prévu : vendredi 13 novembre à 14 h');
+verifier('newsletter en pause : aucun envoi annoncé',
+  ligne(promptAgent(avec({ is_active: false }), JEUDI).prompt, '- prochain envoi'),
+  '- prochain envoi prévu : aucun, la newsletter est en pause');
+verifier('dernière newsletter : la date est celle du fuseau de l\'utilisateur',
+  ligne(promptAgent(avec({ timezone: 'America/New_York', derniere_newsletter: '2026-11-10T02:00:00Z' }), JEUDI).prompt,
+    '- dernière newsletter'), '- dernière newsletter reçue : 09/11/2026');
+// Scénario : Postgres accepte un fuseau que Node ne connaît pas. Le nœud ne doit pas planter.
+verifier('fuseau inconnu : Europe/Paris, sans planter',
+  ligne(promptAgent(avec({ timezone: 'Pas/UnFuseau' }), JEUDI).prompt, 'Nous sommes'),
+  'Nous sommes le jeudi 12 novembre, il est 14 h (Europe/Paris).');
+verifier("étape 2 : l'agent reprend le prochain envoi calculé, il ne calcule pas de date",
+  parEtape.premier_envoi.prompt.includes('Ne calcule jamais une date toi-même'), true);
+
+const promptIntention = (connecte) => lancerNoeud(intention, 'Choisir le prompt',
+  { $input: { first: () => ({ json: { message: 'bonjour', connecte } }) } })[0].json;
+const visiteur = promptIntention('non');
+const abonne = promptIntention('oui');
+verifier('intention : un prompt pour le visiteur, un autre pour l\'abonné',
+  [visiteur.profil, abonne.profil, visiteur.prompt !== abonne.prompt].join(','), 'visiteur,abonne,true');
+verifier('intention : les deux prompts donnent la même liste de mots',
+  ['inscription', 'connexion', 'deconnexion', 'mes_donnees', 'supprimer_compte', 'confidentialite', 'aide', 'annuler', 'aucune']
+    .every(m => visiteur.prompt.includes(m + ' :') && abonne.prompt.includes(m + ' :')), true);
+verifier('intention : le visiteur reçoit toujours une réponse rédigée', visiteur.prompt.includes('Lignes suivantes'), true);
+// Scénario : un abonné écrit « tu sais faire quoi ? ». « Répondre aide » affiche la réponse de Gemini :
+// sans elle, il retombe sur la phrase fixe.
+verifier("intention : l'abonné reçoit une réponse rédigée pour « aide », et pour rien d'autre",
+  [abonne.prompt.includes('Si ce mot est « aide », ajoute'), abonne.prompt.includes("Pour tous les autres mots, n'écris rien")].join(','),
+  'true,true');
+// Scénario : « connecte » est absent ou bizarre. On prend le prompt visiteur, qui ne promet rien.
+verifier('intention : une valeur inconnue donne le prompt visiteur', promptIntention('peut-être').profil, 'visiteur');
+
 
 console.log('\n' + reussis + ' réussis, ' + rates + ' ratés');
 process.exit(rates > 0 ? 1 : 0);
