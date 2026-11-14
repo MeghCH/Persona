@@ -14,10 +14,11 @@ comme prévu en phase 2.
 - Depuis le premier audit (29/10), on a ajouté deux protections : une limite du nombre de messages
   envoyés à l'IA, et un code reçu par email avant de créer un compte.
 - Les 75 tests de `scripts/test_scenarios.js` passent (lancés le 13/11). Depuis le 14/11, le
-  script en a 29 (voir la mise à jour ci-dessous).
+  script en a 35 (voir la mise à jour ci-dessous).
 - Les 4 failles trouvées chez B sont corrigées.
-- Il reste des risques, dont 3 à traiter avant une mise en ligne : Postgres et n8n ouverts sur tout
-  le réseau, pas de HTTPS, et pas de limite d'envois de codes par adresse email.
+- Il reste des risques, dont 2 à traiter avant une mise en ligne : pas de HTTPS, et pas de limite
+  d'envois de codes par adresse email. Postgres et n8n ne sont plus ouverts sur le réseau depuis
+  le 14/11.
 
 ## Mise à jour du 14/11
 
@@ -62,6 +63,15 @@ Ce qui a changé depuis le 13/11 et touche cet audit. Le reste du document est c
   [tests-scenarios.md](../tests-scenarios.md).
 - **Le registre RGPD.** Gemini y est noté comme sous-traitant qui reçoit les messages du chat, et
   la table `chat_ai_requests` y a été ajoutée (voir [normes-RGPD.md](../normes-RGPD.md)).
+- **Les ports de Postgres et de n8n.** Ils étaient ouverts sur toutes les interfaces réseau
+  (`5432:5432`, `5678:5678`) : sur le réseau de l'école, n'importe qui pouvait essayer de se
+  connecter à la base. Ils ne sont plus ouverts que sur la machine (`127.0.0.1:5432:5432`,
+  `127.0.0.1:5678:5678`), comme Mailpit et la page du chatbot. Le chat et le lien de
+  désinscription marchent toujours : ils passent par `localhost`.
+- **L'heure d'envoi par créneaux de 5 minutes.** Nouvelle colonne `send_minute`. La base refuse une
+  minute qui n'est pas 0, 5… 55 (contrainte `preferences_send_minute_check`), et `modifier_horaire`
+  la vérifie avant d'écrire, comme l'heure. L'IA ne peut toujours toucher qu'au compte connecté.
+  6 tests ajoutés : le script en a 35, qui passent.
 
 ## Ce qu'on a audité
 
@@ -261,10 +271,9 @@ Classé du plus important au moins important.
 
 **À traiter avant une mise en ligne**
 
-- **Postgres et n8n sont ouverts sur toutes les interfaces réseau.** Dans `docker-compose.yml`, on
-  a `5432:5432` et `5678:5678`. Sur un réseau partagé, n'importe qui peut essayer de se connecter à
-  la base. Solution : `127.0.0.1:5432:5432` (ou ne pas ouvrir Postgres du tout) et
-  `127.0.0.1:5678:5678`.
+- ~~**Postgres et n8n sont ouverts sur toutes les interfaces réseau.**~~ Fait le 14/11 :
+  `127.0.0.1:5432:5432` et `127.0.0.1:5678:5678` dans `docker-compose.yml`. Pour une mise en ligne,
+  on pourrait aussi ne plus ouvrir Postgres du tout.
 - **Tout passe en HTTP.** Les mots de passe passent par le chat : il faudra du HTTPS dès que le
   projet sera en ligne.
 - **Pas de limite d'envois de codes par adresse email.** On limite à 3 codes par inscription, mais
@@ -330,5 +339,5 @@ comptes, les mots de passe et les codes ne lui arrivent jamais, et les données 
 utilisateur sont séparées. Les deux ajouts récents (limite des messages et code par email) ont
 chacun une faille trouvée en test, corrigée, puis vérifiée.
 
-Avant de mettre Persona en ligne, il faut au minimum fermer les ports de Postgres et de n8n, passer
-en HTTPS et limiter les envois de codes par adresse.
+Avant de mettre Persona en ligne, il faut au minimum passer en HTTPS et limiter les envois de codes
+par adresse. Les ports de Postgres et de n8n ne sont plus ouverts sur le réseau depuis le 14/11.

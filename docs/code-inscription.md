@@ -33,7 +33,7 @@ Tout se passe dans `[A] Chat - Entrée`, en SQL, sans l'IA :
   qu'on peut prévoir.
 - **Code jamais en clair** : seulement son hash dans `auth_pending`. Il n'est ni dans le chat, ni
   dans `audit_log`, ni envoyé à l'IA. Le workflow n'enregistre pas ses exécutions : n8n les
-  efface au plus tard une minute après (voir le README).
+  efface au plus tard une minute après (voir [workflows.md](workflows.md#a-chat---entrée)).
 - **10 minutes et 5 essais** : après, il faut recommencer. Deviner un code sur un million en
   5 essais n'a quasiment aucune chance de marcher.
 - **3 codes au maximum** par inscription, pour qu'on ne puisse pas remplir la boîte mail de

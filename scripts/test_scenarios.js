@@ -1,6 +1,6 @@
 // Tests des workflows Persona.
 //
-// Le fichier suit les workflows, dans l'ordre du README :
+// Le fichier suit les workflows, dans l'ordre de docs/workflows.md :
 //   A · Chatbot     [A] Chat - Entrée, [A] Chat - Agent
 //   B · Newsletter  [B] News - Collecte, [B] News - Envoi
 //   Commun          ce qui touche plusieurs workflows (le modèle Gemini)
@@ -195,10 +195,12 @@ verifier(
 section("[A] Chat - Agent : prompt par étape", ["Choisir le prompt"]);
 
 // Ce que « Choisir le prompt » fait des préférences lues en base.
-function promptAgent(changements) {
+// maintenant : l'heure à laquelle le nœud tourne (par défaut, l'heure réelle).
+function promptAgent(changements, maintenant) {
   const prefs = {
     interests: ["sport", "espace"],
     send_hour: 8,
+    send_minute: 0,
     send_days: [1, 3],
     timezone: "Europe/Paris",
     tone: "neutre",
@@ -208,14 +210,26 @@ function promptAgent(changements) {
     is_active: true,
     derniere_newsletter: null,
     dernier_avis: null,
+    last_sent_at: null,
     ...changements,
   };
   const $ = () => ({
     first: () => ({ json: { message: "bonjour", user_id: "u1" } }),
   });
+  const t = maintenant ? new Date(maintenant).getTime() : Date.now();
+  // le nœud lit l'heure avec new Date() et Date.now() : on lui passe une horloge arrêtée
+  class DateFixe extends Date {
+    constructor(...valeur) {
+      super(...(valeur.length ? valeur : [t]));
+    }
+    static now() {
+      return t;
+    }
+  }
   return lancerNoeud(agent, "Choisir le prompt", {
     $,
     $input: { first: () => ({ json: prefs }) },
+    Date: DateFixe,
   })[0].json;
 }
 
@@ -223,6 +237,50 @@ verifier(
   "sans centre d'intérêt : étape 1, choisir ses sujets",
   promptAgent({ interests: [] }).etape,
   "interets",
+);
+
+// Samedi 14 novembre 2026, 14 h 23 à Paris. L'utilisateur veut sa newsletter dans quelques minutes.
+const SAMEDI_14H23 = "2026-11-14T13:23:10Z";
+const tousLesJours = { send_hour: 14, send_minute: 30, send_days: [1, 2, 3, 4, 5, 6, 7] };
+verifier(
+  "créneau de 14 h 30 réglé à 14 h 23 : prochain envoi aujourd'hui à 14 h 30",
+  promptAgent(tousLesJours, SAMEDI_14H23).prompt.includes(
+    "prochain envoi prévu : samedi 14 novembre à 14 h 30",
+  ),
+  true,
+);
+// Scénario : l'utilisateur a déjà reçu une newsletter à 11 h. [B] News - Envoi n'en envoie pas une
+// deuxième avant 20 h : si l'agent annonçait 14 h 30, l'utilisateur attendrait un email qui ne vient pas.
+const dejaRecue = promptAgent(
+  { ...tousLesJours, last_sent_at: "2026-11-14T10:00:00Z" },
+  SAMEDI_14H23,
+).prompt;
+verifier(
+  "newsletter reçue il y a moins de 20 h : l'agent annonce demain, et pourquoi",
+  [
+    dejaRecue.includes("prochain envoi prévu : dimanche 15 novembre à 14 h 30"),
+    dejaRecue.includes("pas de nouvelle newsletter avant : dimanche 15 novembre à 7 h"),
+  ].join(","),
+  "true,true",
+);
+
+section("[A] Chat - Agent : outil modifier_horaire", ["modifier_horaire"]);
+
+// Scénario : l'IA envoie une minute qui n'est pas un créneau (8 h 07) ou une valeur piégée.
+// L'envoi ne passe que toutes les 5 minutes : une minute 7 ne serait jamais servie.
+// On lance la vraie expression régulière de la requête SQL.
+const regleMinute = new RegExp(
+  parametres(agent, "modifier_horaire").query.match(
+    /btrim\(\$3::text\) ~ '([^']+)'/,
+  )[1],
+);
+verifier(
+  "minute : 0, 5… 55 acceptées ; 7, 60, -5 et une valeur piégée refusées",
+  [
+    ["0", "00", "5", "05", "30", "55"].every((m) => regleMinute.test(m)),
+    ["7", "60", "65", "-5", "5; DROP TABLE users"].some((m) => regleMinute.test(m)),
+  ].join(","),
+  "true,false",
 );
 
 // ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -508,6 +566,38 @@ verifier(
       "$json.excluded_sources",
     ),
   true,
+);
+
+section("[B] News - Envoi : horaire", [
+  "Schedule Trigger (Envoi et Collecte)",
+  "Utilisateurs à servir",
+  "Envoyer la newsletter",
+]);
+
+const cron = (workflow) =>
+  parametres(workflow, "Schedule Trigger").rule.interval[0].expression || "";
+// Scénario : l'utilisateur choisit 14 h 35. Si l'envoi ne passait qu'à l'heure pile, ou ne
+// regardait pas la minute, il recevrait sa newsletter à 15 h, ou à 14 h 00, 14 h 05...
+verifier(
+  "l'envoi passe toutes les 5 minutes et compare l'heure et la minute du créneau",
+  cron(envoi) === "*/5 * * * *" &&
+    /send_hour = EXTRACT\(HOUR FROM now\(\) AT TIME ZONE p\.timezone\)[\s\S]*send_minute = floor\(EXTRACT\(MINUTE FROM now\(\) AT TIME ZONE p\.timezone\) \/ 5\) \* 5/.test(
+      parametres(envoi, "Utilisateurs à servir").query,
+    ),
+  true,
+);
+// Scénario vu dans la base : la collecte et l'envoi partaient à la même seconde à h00. L'envoi ne
+// voyait jamais les articles de l'heure, et sur une installation neuve, le premier ne trouvait rien.
+verifier(
+  "la collecte ne part jamais à la même minute qu'un envoi",
+  Number(cron(collecte).split(" ")[0]) % 5 !== 0,
+  true,
+);
+// Scénario : par défaut, n8n ajoute « This email was sent automatically with n8n » à la fin.
+verifier(
+  "la newsletter part sans la mention ajoutée par n8n",
+  parametres(envoi, "Envoyer la newsletter").options.appendAttribution,
+  false,
 );
 
 // ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::

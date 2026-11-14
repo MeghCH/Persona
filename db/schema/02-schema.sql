@@ -81,6 +81,10 @@ CREATE TABLE IF NOT EXISTS preferences (
     user_id          UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     interests        TEXT[] NOT NULL DEFAULT '{}',
     send_hour        SMALLINT NOT NULL DEFAULT 8 CHECK (send_hour BETWEEN 0 AND 23),
+    -- créneaux de 5 minutes : [B] News - Envoi passe toutes les 5 minutes
+    send_minute      SMALLINT NOT NULL DEFAULT 0
+                     CONSTRAINT preferences_send_minute_check
+                     CHECK (send_minute BETWEEN 0 AND 55 AND send_minute % 5 = 0),
     send_days        SMALLINT[] NOT NULL DEFAULT '{1,2,3,4,5,6,7}',
     timezone         TEXT NOT NULL DEFAULT 'Europe/Paris',
     language         TEXT NOT NULL DEFAULT 'fr',
@@ -100,6 +104,12 @@ CREATE TABLE IF NOT EXISTS preferences (
     CONSTRAINT preferences_send_days_valid
         CHECK (send_days <@ ARRAY[1,2,3,4,5,6,7]::smallint[] AND cardinality(send_days) >= 1)
 );
+
+-- Pour une base déjà créée : la minute d'envoi (les abonnés existants gardent l'heure pile).
+ALTER TABLE preferences ADD COLUMN IF NOT EXISTS send_minute SMALLINT NOT NULL DEFAULT 0;
+ALTER TABLE preferences DROP CONSTRAINT IF EXISTS preferences_send_minute_check;
+ALTER TABLE preferences ADD CONSTRAINT preferences_send_minute_check
+    CHECK (send_minute BETWEEN 0 AND 55 AND send_minute % 5 = 0);
 
 -- unsubscribed_at se remplit tout seul (lien de l'email ou pause dans le chat)
 -- et se vide si l'utilisateur se réabonne

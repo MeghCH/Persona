@@ -94,7 +94,7 @@ mêmes (voir le tableau plus haut).
 | Chat : agent | 1 à 3 par message (5 une fois, pendant l'erreur décrite plus haut) | ~1 370 à 2 600 / 10 à 130 | 3,5 s / 2,4 s |
 
 `[A] Chat - Intention` n'est pas mesuré : il n'enregistre pas ses exécutions, exprès, parce que les
-messages tapés dans le chat peuvent contenir un mot de passe (voir le README).
+messages tapés dans le chat peuvent contenir un mot de passe (voir [workflows.md](workflows.md#a-chat---entrée)).
 
 L'agent fait un appel de plus à chaque outil utilisé, et chaque appel renvoie tout le prompt.
 Un message qui modifie deux réglages coûte donc 3 appels (1 370, puis 2 000, puis 2 400 tokens
