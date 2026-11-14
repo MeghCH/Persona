@@ -303,7 +303,7 @@ aussi les préférences actuelles, la date du jour et le prochain envoi prévu (
 suit le ton choisi par l'utilisateur. Les étapes et les versions
 successives des prompts sont dans [doc/prompts.md](doc/prompts.md).
 
-Les protections et les tests sont détaillés dans [doc/audit-securite.md](doc/audit-securite.md).
+Les protections et les tests sont détaillés dans [doc/audit-securite/audit-secu.md](doc/audit-securite/audit-secu.md).
 
 ### `[B] News - Collecte`
 
@@ -428,24 +428,30 @@ WORKFLOWS=workflows node scripts/test_scenarios.js
 ```
 
 Le script lance le vrai code des nœuds des workflows, avec des réponses de Gemini écrites à la
-main. Rien n'est écrit en base. Chaque test imagine un scénario où quelque chose tourne mal, et
-vérifie que le système réagit bien :
+main. Rien n'est écrit en base.
 
-124 tests, qui doivent tous passer (`124 réussis, 0 ratés`) :
+31 tests : un test par protection pour la collecte et l'envoi, et pour le reste un ou deux par
+domaine (le cas normal, et le cas le plus important à bloquer). Ils doivent tous passer
+(`31 réussis, 0 ratés`).
 
-| Partie | Exemples | Détails |
-|---|---|---|
-| Collecte | un résumé vide, trop long, en anglais, avec du HTML ou un lien : rejeté | [doc/tests-evaluation.md](doc/tests-evaluation.md) |
-| Collecte : reprise | un article dont le lot a échoué est repris, même sans nouvel article ; 50 au maximum | [doc/optimisation.md](doc/optimisation.md#reprise-des-articles) |
-| Envoi | un `<script>` dans un titre est échappé, un `Bcc` caché bloque l'email | [doc/tests-evaluation.md](doc/tests-evaluation.md) |
-| Envoi : réglages | le format `titres` n'a plus les résumés, les sources exclues sont retirées avant le `LIMIT` | [doc/tests-evaluation.md](doc/tests-evaluation.md) |
-| Chat | aucun mot de passe ne part vers l'IA, chaque limite de messages tient | [doc/protection-deni-de-service.md](doc/protection-deni-de-service.md) |
-| Chat : agent | le bon prompt à chaque étape, `reinclure_source` agit sur le compte de la session, un outil ne sert qu'à la demande | [doc/prompts.md](doc/prompts.md) |
-| Inscription | le code est aléatoire, haché, limité à 5 essais et 3 envois | [doc/code-inscription.md](doc/code-inscription.md) |
-| Modèle | les 4 nœuds Gemini ont le même modèle, écrit en toutes lettres | [doc/optimisation.md](doc/optimisation.md#les-deux-modèles-essayés) |
+Les domaines sont les sections affichées par le script (`--- Collecte : …`) :
+
+| Section du script | Tests | Ce qui est testé | Détails |
+|---|---|---|---|
+| Collecte : évaluation des résumés | 9 | un bon résumé est gardé ; rejetés : vide, trop long, en anglais, avec du HTML, un lien ou une consigne, refusé par l'IA relectrice ; IA relectrice en panne : seul le contrôle automatique compte | [tests-evaluation.md](doc/tests-evaluation.md) |
+| Collecte : reprise des articles sans résumé | 1 | après l'insertion, les articles passent par `Articles à résumer` | [tests-evaluation.md](doc/tests-evaluation.md) |
+| Envoi : vérification de l'email | 5 | un email normal part ; du HTML dans un titre est échappé ; bloqués : lien `javascript:`, `Bcc` caché, lien de désinscription absent | [tests-evaluation.md](doc/tests-evaluation.md) |
+| Envoi : réglages choisis dans le chat | 6 | les formats `titres`, `resume` et `detaille` ; un format ou un fuseau inconnu ne casse rien ; les sources exclues sont retirées avant le `LIMIT` | [tests-evaluation.md](doc/tests-evaluation.md) |
+| Chat : messages envoyés à l'IA | 2 | rien ne part vers l'IA pendant l'inscription ou la connexion ; 6 messages en une minute, le suivant est refusé | [protection-deni-de-service.md](doc/protection-deni-de-service.md) |
+| Chat : comprendre les phrases | 2 | un non connecté qui veut s'inscrire démarre l'inscription ; aucune intention, connecté ou non, ne supprime un compte | [protection-deni-de-service.md](doc/protection-deni-de-service.md) |
+| Inscription : code reçu par email | 2 | bon code : compte créé ; 5 essais au maximum | [code-inscription.md](doc/code-inscription.md) |
+| Agent : un prompt par étape | 2 | sans sujets, étape 1 ; les 5 étapes gardent les règles de sécurité et la règle des outils | [prompts.md](doc/prompts.md) |
+| Agent : outils | 1 | `reinclure_source` est branché sur l'agent et agit sur le compte de la session | [prompts.md](doc/prompts.md) |
+| Modèle Gemini | 1 | les 4 nœuds Gemini ont le même modèle, écrit en toutes lettres | [optimisation.md](doc/optimisation.md#les-deux-modèles-essayés) |
 
 Les tests ne remplacent pas un essai avec le vrai Gemini : ils ne vérifient ni la qualité des
-résumés, ni ce que l'agent décide de faire.
+résumés, ni ce que l'agent décide de faire. Les conversations à rejouer à la main sont dans
+[doc/prompts.md](doc/prompts.md#tester-une-nouvelle-version).
 
 ## Sources de news
 
@@ -473,7 +479,8 @@ acceptent aussi `lemonde`, `franceinfo`, `francetvinfo` et `bbc`.
 
 1. le flux dans `Liste des sources` (`[B] News - Collecte`) ;
 2. le nom et ses variantes dans la liste `VALUES` de `exclure_source` **et** de `reinclure_source`
-   (`[A] Chat - Agent`) : un test vérifie que les deux listes sont les mêmes ;
+   (`[A] Chat - Agent`) : les deux listes doivent être les mêmes, sinon on pourrait exclure une
+   source sans pouvoir la remettre ;
 3. le nom dans la description de ces deux outils et dans les « Valeurs autorisées » du prompt
    (`Choisir le prompt`, même workflow).
 

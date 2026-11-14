@@ -89,13 +89,17 @@ Ce qui reste protégé :
 docker compose exec -T n8n node - < scripts/test_scenarios.js
 ```
 
-Ces tests lancent le vrai code des nœuds :
+Ces tests lancent le vrai code des nœuds. Pour cette partie, il en reste 4 :
 
-- quels messages partent vers l'IA (et le mot de passe n'y va jamais)
-- chaque limite, et le cas où les non connectés ont tout utilisé mais un connecté passe encore
-- la lecture de la réponse de l'IA (majuscules, mot inconnu, réponse vide, `__proto__`)
+- pendant l'inscription ou la connexion guidée, rien ne part vers l'IA (le mot de passe n'y va
+  jamais)
+- 6 messages en une minute : le suivant est refusé
+- un non connecté qui veut s'inscrire démarre l'inscription
 - le cas grave : aucune intention ne mène à `delete_confirm`
-- le graphe du workflow : on ne peut pas arriver à l'agent sans passer par la limite
+
+Les autres limites (par jour, par compte, pour les non connectés), le comptage en une seule requête
+et la lecture de la réponse de l'IA ne sont plus testés automatiquement. Ils ont été vérifiés
+quand ils ont été écrits (voir l'audit), et les protections sont toujours dans le workflow.
 
 ## Base de données
 

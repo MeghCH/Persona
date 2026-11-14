@@ -113,7 +113,8 @@ n8n du nœud `Choisir le prompt`.
   - les deux cas étaient dans un seul texte, difficile à relire et impossible à tester sans
     lancer n8n ;
   - pour un abonné, Gemini écrivait le plus souvent une réponse que personne n'affiche.
-- **v3** (12/11) : deux prompts séparés, choisis par le code et testés. L'abonné garde une
+- **v3** (12/11) : deux prompts séparés, choisis par le code et testés (ces tests ont été retirés
+  le 14/11 : le prompt de l'intention se vérifie maintenant à la main). L'abonné garde une
   réponse rédigée pour `aide` seulement : sans elle, « tu sais faire quoi ? » retombait sur la
   phrase fixe, alors que v2 avait justement été faite pour éviter les phrases fixes.
 
@@ -132,20 +133,12 @@ n8n du nœud `Choisir le prompt`.
      et aucune autre source ne change
    - une demande qu'aucun outil ne sait faire (« ajoute Le Figaro ») : il le dit, et rien ne change
 
-Les 30 tests du choix de prompt vérifient :
+Pour l'agent, `scripts/test_scenarios.js` garde 3 tests :
 
-- la bonne étape dans chaque cas (pas de sujets, rien reçu, newsletter récente ou ancienne, avis
-  donné, pause, préférences absentes) ;
-- 5 prompts différents ;
-- la prochaine étape annoncée ;
-- les règles de sécurité gardées à chaque étape ;
-- les préférences et le ton dans le prompt ;
-- la date du jour et le prochain envoi (heure passée ou non, semaine suivante, pause, autre
-  fuseau, fuseau inconnu), avec une date fixée dans le test pour qu'il ne dépende pas du jour ;
-- le message de l'utilisateur jamais mélangé au prompt ;
-- le bon prompt d'intention (visiteur, abonné, `aide` pour l'abonné, valeur inconnue).
+- sans centre d'intérêt, l'agent est à l'étape 1 (choisir ses sujets) ;
+- les 5 étapes gardent les règles de sécurité et la règle « un outil seulement pour ce que
+  l'utilisateur a demandé » ;
+- `reinclure_source` est branché sur l'agent et agit sur le compte de la session.
 
-5 autres tests vérifient les outils des sources : `reinclure_source` est branché sur l'agent, agit
-sur le compte de la session et note la modification dans le journal, les deux outils connaissent
-les mêmes sources, et chaque étape garde la règle « un outil seulement pour ce que l'utilisateur a
-demandé ».
+Le reste (le calcul du prochain envoi, le ton, le prompt de l'intention…) se vérifie avec les
+conversations ci-dessus.
