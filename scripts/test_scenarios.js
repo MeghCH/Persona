@@ -1,6 +1,6 @@
 // Tests des workflows Persona.
 //
-// Le fichier suit les workflows, dans l'ordre du README :
+// Le fichier suit les workflows, dans l'ordre de docs/workflows.md :
 //   A · Chatbot     [A] Chat - Entrée, [A] Chat - Agent
 //   B · Newsletter  [B] News - Collecte, [B] News - Envoi
 //   Commun          ce qui touche plusieurs workflows (le modèle Gemini)

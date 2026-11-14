@@ -22,7 +22,7 @@ Le script lance le vrai code des nœuds des workflows. Gemini est remplacé par 
 
 ## Comment ils sont rangés
 
-Le script suit les workflows, comme le README :
+Le script suit les workflows, dans l'ordre de [workflows.md](workflows.md) :
 
 | Groupe | Ce qu'il teste |
 |---|---|
@@ -36,6 +36,22 @@ et le cas le plus important à bloquer.
 
 Un test « OK » veut dire que la protection a marché. Les cas normaux sont là pour vérifier que
 les protections ne bloquent pas tout.
+
+En résumé :
+
+| Groupe         | Section du script                           | Tests | Ce qui est testé                                                                                                 |
+| -------------- | ------------------------------------------- | ----- | ---------------------------------------------------------------------------------------------------------------- |
+| A · Chatbot    | [A] Chat - Entrée : messages envoyés à l'IA | 2     | rien ne part vers l'IA pendant l'inscription ou la connexion ; une rafale de messages est refusée                |
+| A · Chatbot    | [A] Chat - Entrée : comprendre les phrases  | 2     | une phrase d'inscription est comprise ; aucune phrase ne supprime un compte                                      |
+| A · Chatbot    | [A] Chat - Entrée : code d'inscription      | 2     | le bon code crée le compte ; 5 essais au maximum                                                                 |
+| A · Chatbot    | [A] Chat - Agent : prompt par étape         | 3     | sans centre d'intérêt, l'agent est à l'étape 1 ; prochain envoi à la minute près, règle des 20 h                 |
+| A · Chatbot    | [A] Chat - Agent : outil modifier_horaire   | 1     | une minute hors créneau (7, 60) ou piégée est refusée                                                            |
+| B · Newsletter | [B] News - Collecte : contrôle des résumés  | 9     | un bon résumé est gardé, les mauvais sont rejetés, même si l'IA relectrice est en panne                          |
+| B · Newsletter | [B] News - Collecte : reprise des articles  | 1     | les articles d'un lot raté sont repris                                                                           |
+| B · Newsletter | [B] News - Envoi : sécurité de l'email      | 5     | le HTML est échappé ; un lien `javascript:`, un `Bcc` caché ou un lien de désinscription absent bloquent l'email |
+| B · Newsletter | [B] News - Envoi : réglages de l'abonné     | 6     | les 3 formats, un format ou un fuseau inconnu, les sources exclues                                               |
+| B · Newsletter | [B] News - Envoi : horaire                  | 3     | envoi toutes les 5 minutes au bon créneau ; collecte jamais en même temps ; pas de mention n8n                   |
+| Commun         | Modèle Gemini                               | 1     | les 4 nœuds Gemini ont le même modèle, écrit en toutes lettres                                                   |
 
 ## A · Chatbot
 

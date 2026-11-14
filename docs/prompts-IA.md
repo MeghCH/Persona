@@ -144,7 +144,7 @@ n8n du nœud `Choisir le prompt`.
      et aucune autre source ne change
    - une demande qu'aucun outil ne sait faire (« ajoute Le Figaro ») : il le dit, et rien ne change
    - « envoie-moi la newsletter dans 10 minutes » : il règle le bon créneau et annonce l'heure,
-     puis la newsletter arrive dans Mailpit (voir le [README](../README.md#5-tester-un-envoi-programmé))
+     puis la newsletter arrive dans Mailpit (voir le [README](../README.md#6-tester-un-envoi-programmé))
 
 Pour l'agent, `scripts/test_scenarios.js` a 4 tests. Dans la section `[A] Chat - Agent : prompt
 par étape` : sans centre d'intérêt, l'agent est à l'étape 1 (choisir ses sujets), et le prochain

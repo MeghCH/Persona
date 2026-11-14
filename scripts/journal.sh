@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Affiche les derniers événements du journal (audit_log). Voir le README, « Voir le journal et les retours ».
+# Affiche les derniers événements du journal (audit_log). Voir docs/base-de-donnees.md.
 # Usage : bash scripts/journal.sh [nombre de lignes, 20 par défaut]
 set -e
 cd "$(dirname "$0")/.."
