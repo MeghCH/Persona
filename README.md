@@ -13,8 +13,9 @@ l'actualité par email, aux jours et à l'heure qu'on veut.
 - **Git**
 - **Sous Windows** : WSL 2 avec Ubuntu, et Docker Desktop avec l'intégration WSL activée. Toutes
   les commandes se tapent dans le terminal Ubuntu, et le projet se clone dans Ubuntu (`~`), pas dans `C:`.
-- **Des ports libres** : 5432 (base), 5678 (n8n), 8025 (emails), 8090 (chatbot). Ils ne sont
-  ouverts que sur la machine (`127.0.0.1`), pas sur le réseau
+- **Des ports libres** : 5432 (base), 5678 (n8n), 8025 (emails), 8090 (chatbot), et 8081 si on
+  lance Adminer pour [voir la base](#voir-la-base-de-données). Ils ne sont ouverts que sur la
+  machine (`127.0.0.1`), pas sur le réseau
 - **Aucun nœud communautaire** : Persona n'utilise que les nœuds fournis avec n8n (image
   `n8nio/n8n:2.44.7`), il n'y a rien à installer dans n8n. Les données sont dans PostgreSQL, que
   `setup.sh` prépare tout seul (étape 1)
@@ -127,15 +128,16 @@ collecte, ou choisir d'autres sujets), ou l'email a été bloqué par la vérifi
 
 ### Au quotidien
 
-| Pour...                                      | Faire                                                                                   |
-| -------------------------------------------- | --------------------------------------------------------------------------------------- |
-| arrêter                                      | `docker compose down`                                                                   |
-| relancer                                     | `bash scripts/setup.sh`                                                                 |
-| récupérer le travail de l'autre              | `git pull`, `bash scripts/setup.sh`, puis les étapes 3 et 4                             |
-| mettre dans Git un workflow modifié dans n8n | `bash scripts/workflows.sh export <nom>` (voir [Travailler à deux](#travailler-à-deux)) |
-| voir les derniers événements du journal      | `bash scripts/journal.sh` (ou `bash scripts/journal.sh 50`)                             |
-| lancer les tests                             | `docker compose exec -T n8n node - < scripts/test_scenarios.js`                         |
-| tout effacer et repartir de zéro             | `docker compose down -v`, puis les étapes 1 à 4                                         |
+| Pour...                                      | Faire                                                                                       |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| arrêter                                      | `docker compose down`                                                                       |
+| relancer                                     | `bash scripts/setup.sh`                                                                     |
+| récupérer le travail de l'autre              | `git pull`, `bash scripts/setup.sh`, puis les étapes 3 et 4                                 |
+| mettre dans Git un workflow modifié dans n8n | `bash scripts/workflows.sh export <nom>` (voir [Travailler à deux](#travailler-à-deux))     |
+| voir les derniers événements du journal      | `bash scripts/journal.sh` (ou `bash scripts/journal.sh 50`)                                 |
+| voir la base dans le navigateur              | `docker compose --profile outils up -d adminer` (voir [plus bas](#voir-la-base-de-données)) |
+| lancer les tests                             | `docker compose exec -T n8n node - < scripts/test_scenarios.js`                             |
+| tout effacer et repartir de zéro             | `docker compose down -v`, puis les étapes 1 à 4                                             |
 
 `bash scripts/setup.sh` met aussi la base à jour : le schéma est dans un seul fichier,
 `db/schema/02-schema.sql`, et une base existante reçoit les nouvelles tables et colonnes sans
@@ -143,6 +145,45 @@ perdre ses données.
 
 `docker compose down -v` efface tout : la base, mais aussi le compte n8n, les credentials et les
 workflows de n8n.
+
+### Voir la base de données
+
+Adminer est une interface web pour la base. Il est dans `docker-compose.yml`, mais ne démarre pas
+avec le reste (profil `outils`) : `setup.sh` ne le lance pas.
+
+```bash
+docker compose --profile outils up -d adminer   # démarrer
+docker compose stop adminer                     # arrêter
+```
+
+Ouvrir http://localhost:8081 et se connecter :
+
+| Champ           | Valeur                                                             |
+| --------------- | ------------------------------------------------------------------ |
+| Système         | **PostgreSQL** (Adminer propose MySQL par défaut : le changer)     |
+| Serveur         | `postgres` (déjà rempli)                                           |
+| Utilisateur     | `persona_app`                                                      |
+| Mot de passe    | la valeur de `PERSONA_DB_PASSWORD` dans `.env`                     |
+| Base de données | `persona` (la base `n8n`, à côté, est celle de n8n lui-même)       |
+
+Les tables sont listées à gauche. _Afficher les données_ montre le contenu d'une table, avec des
+filtres et du tri. _Requête SQL_ (en haut à gauche) lance une requête, par exemple pour suivre un
+[envoi programmé](#5-tester-un-envoi-programmé) :
+
+```sql
+SELECT u.email, p.interests, p.send_hour, p.send_minute, p.send_days, p.is_active, p.last_sent_at
+FROM users u JOIN preferences p ON p.user_id = u.id;
+```
+
+`persona_app` peut lire et modifier les données, mais pas le schéma. Une ligne modifiée ou
+supprimée dans Adminer l'est vraiment, comme depuis les workflows. Adminer n'est ouvert que sur la
+machine (`127.0.0.1:8081`).
+
+Sans Adminer, la même base est accessible en ligne de commande :
+
+```bash
+docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d persona'
+```
 
 ### Si ça ne marche pas
 

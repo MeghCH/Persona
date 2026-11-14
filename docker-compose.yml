@@ -65,6 +65,18 @@ services:
     volumes:
       - ./web:/usr/share/nginx/html:ro
 
+  # Interface web pour voir la base : http://localhost:8081
+  # Ne démarre pas avec le reste : docker compose --profile outils up -d adminer
+  adminer:
+    image: adminer:4.8.1
+    profiles: ["outils"]
+    depends_on:
+      - postgres
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    ports:
+      - "127.0.0.1:8081:8080"
+
 volumes:
   postgres_data:
   n8n_data:
