@@ -185,6 +185,89 @@ Sans Adminer, la même base est accessible en ligne de commande :
 docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d persona'
 ```
 
+### Voir le journal et les retours
+
+**Le journal** (table `audit_log`) note chaque action sensible : l'événement, le compte concerné,
+la date et quelques détails. Il ne garde ni l'email (seulement l'identifiant du compte), ni le
+texte des messages, ni les mots de passe. Il est conservé 1 an.
+
+```bash
+bash scripts/journal.sh      # les 20 derniers événements
+bash scripts/journal.sh 50   # les 50 derniers
+```
+
+Chaque ligne donne la date (en UTC), l'événement, l'email du compte s'il existe encore et les
+détails. Pour ne voir qu'un seul événement, remplacer `newsletter_blocked` par celui qu'on cherche :
+
+```bash
+docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d persona' <<'SQL'
+SELECT a.created_at, u.email, a.details
+FROM audit_log a LEFT JOIN users u ON u.id = a.user_id
+WHERE a.event = 'newsletter_blocked'
+ORDER BY a.created_at DESC LIMIT 20;
+SQL
+```
+
+Combien de fois chaque événement est arrivé :
+
+```bash
+docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d persona' <<'SQL'
+SELECT event, count(*), max(created_at) AS dernier FROM audit_log GROUP BY event ORDER BY 2 DESC;
+SQL
+```
+
+Les événements :
+
+| Partie                | Événement                 | Quand                                                                           |
+| --------------------- | ------------------------- | ------------------------------------------------------------------------------- |
+| Inscription et compte | `register_otp_sent`       | un code d'inscription est envoyé (ou renvoyé)                                   |
+|                       | `register_otp_failed`     | un mauvais code est tapé (avec le numéro de l'essai)                            |
+|                       | `register_ok`             | le compte est créé                                                              |
+|                       | `register_duplicate`      | quelqu'un s'inscrit avec un email déjà pris                                     |
+|                       | `email_changed`           | l'agent a changé l'email du compte                                              |
+|                       | `account_deleted`         | le compte est supprimé, dans le chat ou 6 mois après la désinscription          |
+| Connexion             | `login_ok`                | connexion réussie                                                               |
+|                       | `login_failed`            | mauvais mot de passe sur un compte qui existe                                   |
+|                       | `account_locked`          | 5e erreur : le compte est bloqué 15 minutes                                     |
+|                       | `login_blocked`           | tentative de connexion pendant le blocage                                       |
+|                       | `login_failed_unknown`    | email inconnu (rien n'est gardé sur cet email)                                  |
+|                       | `logout`                  | déconnexion                                                                     |
+| Réglages (agent)      | `prefs_interests_updated` | centres d'intérêt modifiés                                                      |
+|                       | `prefs_schedule_updated`  | jours, heure, minute ou fuseau d'envoi modifiés                                 |
+|                       | `prefs_style_updated`     | ton, format ou nombre d'articles modifiés                                       |
+|                       | `prefs_active_updated`    | newsletter mise en pause ou reprise dans le chat                                |
+|                       | `prefs_source_excluded`   | une source est exclue                                                           |
+|                       | `prefs_source_included`   | une source exclue est remise                                                    |
+|                       | `feedback_added`          | un retour est enregistré (le texte est dans `feedback`, voir plus bas)          |
+| Sécurité              | `injection_suspected`     | message bloqué par le filtre anti-injection, avant l'IA                         |
+|                       | `rate_limited`            | trop de messages vers l'IA (avec la raison du refus)                            |
+| Newsletter            | `summary_review`          | un résumé est rejeté à la collecte (avec l'article et la raison)                |
+|                       | `newsletter_blocked`      | un email est bloqué juste avant l'envoi (avec la liste des problèmes)           |
+|                       | `unsubscribed`            | désinscription par le lien de l'email                                           |
+| Maintenance           | `night_cleanup`           | nettoyage de 3 h (avec le nombre d'articles, d'envois et de sessions supprimés) |
+
+Les lignes `retention_cleanup` qu'on peut encore voir viennent d'une version d'avant le 03/11 :
+c'était l'ancien nom de `night_cleanup`.
+
+**Les retours** (table `feedback`) sont ce que les abonnés disent de leurs newsletters dans le
+chat (« trop long », « je n'aime pas le sport »…). L'agent les enregistre avec `donner_feedback` :
+1 000 caractères et 20 retours par jour au plus. Ils sont conservés 1 an.
+
+```bash
+docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d persona' <<'SQL'
+SELECT f.created_at, u.email, f.message
+FROM feedback f JOIN users u ON u.id = f.user_id
+ORDER BY f.created_at DESC LIMIT 20;
+SQL
+```
+
+Un retour ne change pas la newsletter tout seul : l'agent propose le réglage qui va avec
+(exclure une source, passer au format `titres`, moins d'articles…), et l'utilisateur décide.
+Chaque abonné voit ses propres retours avec `mes données` dans le chat.
+
+Les deux tables se lisent aussi dans [Adminer](#voir-la-base-de-données) : `audit_log` et
+`feedback`, puis _Afficher les données_.
+
 ### Si ça ne marche pas
 
 | Ce qu'on voit                                                             | Quoi faire                                                                                                                                |
@@ -498,8 +581,9 @@ curl "http://localhost:5678/webhook/unsubscribe?token=00000000-0000-0000-0000-00
 
 ### `[Commun] Maintenance RGPD`
 
-Chaque nuit à 3 h, appelle `SELECT persona_cleanup();` puis ajoute un événement
-`retention_cleanup` dans `audit_log`. Ce qui est supprimé :
+Chaque nuit à 3 h, ajoute un événement `night_cleanup` dans `audit_log` (avec le nombre
+d'articles, d'envois et de sessions à supprimer), puis appelle `SELECT persona_cleanup();`.
+Ce qui est supprimé :
 
 - les comptes désabonnés : 6 mois après la désinscription (la date est notée toute seule en base)
 - `sessions` : une fois expirées
