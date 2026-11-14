@@ -648,5 +648,45 @@ verifier("intention : l'abonné reçoit une réponse rédigée pour « aide », 
 verifier('intention : une valeur inconnue donne le prompt visiteur', promptIntention('peut-être').profil, 'visiteur');
 
 
+
+
+console.log("\n--- Chat : outils de l'agent pour les sources");
+
+const outil = nom => agent.nodes.find(n => n.name === nom);
+const listeSources = nom => (outil(nom).parameters.query.match(/\(VALUES [\s\S]*?\) AS m\(alias, source\)/) || [''])[0];
+
+// Scénario vu en testant le chat : « réinclure Le Monde » sans outil pour le faire. L'agent a appelé
+// exclure_source avec France Info à la place, et a répondu sans le dire.
+verifier('reinclure_source existe et est branché sur l\'agent',
+  Boolean(outil('reinclure_source'))
+  && JSON.stringify(agent.connections.reinclure_source) === JSON.stringify({ ai_tool: [[{ node: 'Agent Persona', type: 'ai_tool', index: 0 }]] }),
+  true);
+// Comme les autres outils : l'utilisateur vient de la session, jamais de l'IA.
+verifier('reinclure_source agit sur le compte de la session',
+  outil('reinclure_source').parameters.options.queryReplacement.startsWith("={{ [ $('Recevoir la demande').first().json.user_id,")
+  && /WHERE user_id = \$1::uuid/.test(outil('reinclure_source').parameters.query), true);
+verifier('reinclure_source retire la source de la liste et le note dans le journal',
+  /array_remove\(excluded_sources/.test(outil('reinclure_source').parameters.query)
+  && /'prefs_source_included'/.test(outil('reinclure_source').parameters.query), true);
+// Scénario : on ajoute une source à exclure_source et on oublie reinclure_source. On pourrait
+// alors l'exclure sans jamais pouvoir la remettre.
+verifier('les deux outils connaissent les mêmes sources',
+  listeSources('exclure_source') !== '' && listeSources('exclure_source') === listeSources('reinclure_source'), true);
+verifier("toutes les étapes interdisent d'utiliser un outil pour autre chose que la demande",
+  Object.values(parEtape).every(r => r.prompt.includes("N'utilise un outil que pour faire ce que l'utilisateur a demandé")), true);
+
+
+console.log('\n--- Modèle Gemini');
+
+// Scénario : un nœud Gemini n'a pas de modèle écrit. n8n prend alors son modèle par défaut, qui change
+// avec les versions de n8n (c'est comme ça qu'on s'est retrouvés sur gemini-3-flash-preview), et le
+// quota change avec lui (voir doc/optimisation.md).
+const noeudsGemini = [collecte, agent, intention].flatMap(w =>
+  w.nodes.filter(n => n.type === '@n8n/n8n-nodes-langchain.lmChatGoogleGemini'));
+verifier('les 4 nœuds Gemini ont un modèle écrit, le même partout',
+  [noeudsGemini.length, [...new Set(noeudsGemini.map(n => n.parameters.modelName))].join(',')].join(' | '),
+  '4 | models/gemini-3.5-flash-lite');
+
+
 console.log('\n' + reussis + ' réussis, ' + rates + ' ratés');
 process.exit(rates > 0 ? 1 : 0);

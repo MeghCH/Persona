@@ -87,6 +87,17 @@ n8n du nœud `Choisir le prompt`.
   prochain envoi calculé par le code, et l'étape 2 interdit à Gemini de calculer une date
   lui-même. La date de la dernière newsletter est aussi écrite dans le fuseau de l'utilisateur
   (elle l'était en `Europe/Paris`).
+- **v2, réintégrer une source** (14/11) : en testant dans la bulle, « je souhaite réinclure la
+  source Le Monde ». Aucun outil ne savait le faire : l'agent a appelé deux fois `exclure_source`
+  avec France Info, puis a répondu qu'il ne pouvait pas réinclure Le Monde, sans dire qu'il venait
+  d'exclure France Info. Deux corrections :
+  - un outil `reinclure_source`, l'inverse de `exclure_source`, avec la même liste de sources ;
+  - une règle de plus dans la base : « N'utilise un outil que pour faire ce que l'utilisateur a
+    demandé, jamais pour autre chose. Si aucun outil ne permet sa demande, dis-le et ne modifie
+    rien d'autre. »
+
+  Les descriptions de `exclure_source` et `reinclure_source` disent aussi quand utiliser l'un ou
+  l'autre.
 
 **Intention**
 
@@ -113,6 +124,9 @@ n8n du nœud `Choisir le prompt`.
      sur l'heure d'envoi
    - « mets ma newsletter en pause », puis « salut » : il propose de la reprendre
    - après une newsletter reçue, « merci » : il demande ce qu'on en a pensé
+   - « exclus Le Monde », puis « en fait remets Le Monde » : Le Monde est exclue puis remise,
+     et aucune autre source ne change
+   - une demande qu'aucun outil ne sait faire (« ajoute Le Figaro ») : il le dit, et rien ne change
 
 Les 30 tests du choix de prompt vérifient :
 

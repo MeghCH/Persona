@@ -190,6 +190,10 @@ du nœud Postgres), jamais de concaténation : c'est ce qui protège de l'inject
 
 L'ordre de publication est à l'étape 4 de [Lancer le projet](#lancer-le-projet).
 
+Les 4 nœuds Gemini utilisent le même modèle, `gemini-3.5-flash-lite`, écrit dans chaque nœud. Pour
+en changer, il faut changer les 4 : un test le vérifie. Le choix est expliqué dans
+[doc/optimisation.md](doc/optimisation.md#changement-de-modèle).
+
 ### `[A] Chat - Entrée`
 
 Le chat se fait depuis la page http://localhost:8090 (fichier `web/index.html`, servi par
@@ -248,8 +252,9 @@ confidentialité) gardent leurs phrases fixes. Si Gemini ne répond pas, le chat
 
 ### `[A] Chat - Agent`
 
-Agent Gemini avec 8 outils : `lire_preferences`, `modifier_interets`, `modifier_horaire`,
-`modifier_email`, `activer_newsletter`, `modifier_style`, `exclure_source`, `donner_feedback`.
+Agent Gemini avec 9 outils : `lire_preferences`, `modifier_interets`, `modifier_horaire`,
+`modifier_email`, `activer_newsletter`, `modifier_style`, `exclure_source`, `reinclure_source`,
+`donner_feedback`.
 
 L'identifiant de l'utilisateur vient de la session, jamais de l'IA : même si on manipule
 le modèle, il ne peut toucher qu'au compte connecté. Les centres d'intérêt doivent faire

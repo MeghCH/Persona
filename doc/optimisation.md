@@ -1,8 +1,10 @@
 # Optimisation du temps et des tokens
 
 Mesures du 14/11/2026, sur les exécutions enregistrées par n8n du 31/10 au 13/11 : 68 collectes,
-68 envois, 75 messages du chat et 19 appels de l'agent. Le modèle est `gemini-3-flash-preview` :
-aucun nœud n'en choisit un, n8n prend donc son modèle par défaut.
+68 envois, 75 messages du chat et 19 appels de l'agent. Pendant ces mesures, le modèle était
+`gemini-3-flash-preview` : aucun nœud n'en choisissait un, et n8n prenait son modèle par défaut.
+Depuis le 14/11, les 4 nœuds Gemini utilisent `gemini-3.5-flash-lite` (voir
+[Changement de modèle](#changement-de-modèle)).
 
 ## En bref
 
@@ -133,23 +135,64 @@ La cause n'est pas encore confirmée. Deux pistes :
 - **les réessais après un refus** : l'évaluation part juste après le résumé, et les mêmes
   exécutions contiennent des refus « too many requests ». Le nœud réessaie alors tout seul, en
   attendant de plus en plus longtemps.
-- **la réflexion du modèle** : `gemini-3-flash-preview` peut « réfléchir » avant de répondre, et vérifier
-  chaque fait demande plus de réflexion que résumer. Ces tokens de réflexion n'apparaissent pas
-  dans le compteur de n8n : si c'est la cause, nos chiffres de sortie sont sous-estimés.
+- **la réflexion du modèle** : `gemini-3-flash-preview` « réfléchit » avant de répondre. On l'a vu
+  sur l'agent : 577 tokens de réflexion pour 23 de réponse (voir [prompts.md](prompts.md)). Vérifier
+  chaque fait demande sans doute plus de réflexion que résumer. Ces tokens de réflexion
+  n'apparaissent pas dans le compteur de n8n : si c'est la cause, nos chiffres de sortie sont
+  sous-estimés.
 
 Pour trancher : quand le quota est revenu, relancer seulement `Évaluer les résumés` avec des
 données épinglées (comme dans [tests-evaluation.md](tests-evaluation.md)). Si l'appel dure encore
 plus de 2 minutes sans aucun refus dans les logs, c'est la réflexion.
 
+## Changement de modèle
+
+Le 14/11, les 4 nœuds Gemini (`Google Gemini Chat Model` et `Modèle Gemini (évaluation)` dans la
+collecte, `Modèle Gemini` dans l'agent et dans l'intention) passent à `gemini-3.5-flash-lite`, écrit
+dans chaque nœud. On garde le même modèle partout.
+
+Pourquoi :
+
+- `gemini-3-flash-preview` est une préversion de décembre 2025, que Google conseille de remplacer.
+  Une préversion peut changer ou disparaître, et elle tient moins bien la charge (4 « service
+  unavailable » dans nos collectes).
+- Le quota est compté par modèle (`limit: 20, model: gemini-3-flash` dans les logs). Google ne
+  publie pas les quotas gratuits de chaque modèle, mais les relevés qu'on a trouvés donnent environ
+  500 requêtes par jour aux modèles Flash-Lite, contre 20 pour les Flash 3.x. Avec un Flash, même
+  avec la piste 2, il ne resterait presque rien pour le chat.
+- Nos tâches sont simples : classer dans une liste fermée, résumer en 2 phrases, vérifier un
+  résumé, régler des préférences avec des outils.
+- Sans modèle écrit, n8n prend son modèle par défaut, qui change avec ses versions. Un test de
+  `scripts/test_scenarios.js` vérifie maintenant que les 4 nœuds ont le même modèle, écrit en toutes
+  lettres.
+
+Ce qu'il reste à vérifier :
+
+- **le quota réel** : s'il est dépassé, les logs de n8n donnent la limite
+  (`docker compose logs n8n | grep "Quota exceeded"`).
+- **l'agent du chat**, à la main : un Lite peut moins bien enchaîner les outils. À essayer : changer
+  ses sujets, l'heure, exclure une source, deux changements dans le même message.
+- **les mesures de cette page**, à refaire après quelques jours (tokens, durées, résumés rejetés par
+  l'évaluation), pour comparer.
+
+Premier essai à la main (14/11) : l'heure, les sujets, le style et l'exclusion d'une source
+marchent, y compris deux changements dans le même message. Une erreur : pour « réinclure Le
+Monde », que l'agent ne savait pas faire, il a exclu France Info à la place. On ne sait pas si un
+autre modèle aurait fait mieux. C'est corrigé par un outil et une règle dans le prompt (voir
+[prompts.md](prompts.md)), mais c'est le genre d'erreur à surveiller avec un modèle Lite.
+
+Si l'agent se trompe trop, l'étape suivante est `gemini-3.8-flash` avec une clé payante : avec la clé
+gratuite, son quota ne suffit pas.
+
 ## Pistes
 
-Rien de cette partie n'est fait. Les gains sont calculés pour 180 articles par jour.
+Rien de cette partie n'est fait, sauf la piste 3. Les gains sont calculés pour 180 articles par jour.
 
 | Piste | Gain | Ce que ça coûte |
 |---|---|---|
 | 1. Reprendre les articles sans résumé | plus aucun article perdu | aucune requête en plus : ce sont les mêmes articles |
 | 2. Des lots plus gros, une collecte moins souvent | de 48 à 8-12 requêtes par jour | voir le tableau plus bas |
-| 3. Choisir le modèle dans les nœuds | une mise à jour de n8n ne change plus le modèle ni le quota en silence | comparer les quotas des modèles sur la page des limites d'AI Studio |
+| 3. ~~Choisir le modèle dans les nœuds~~ (fait le 14/11) | une mise à jour de n8n ne change plus le modèle ni le quota en silence | voir [Changement de modèle](#changement-de-modèle) |
 | 4. Ne pas appeler l'IA relectrice quand le contrôle automatique a tout rejeté | 1 requête de moins par lot entièrement rejeté | rare : 1 seul rejet automatique mesuré |
 | 5. Régler la limite globale du chat sur le vrai quota | la limite protège vraiment le quota | moins de messages possibles par jour |
 | 6. Passer à une clé payante | plus de quota par jour | le prix dépend alors des tokens : les chiffres plus haut permettent de l'estimer |
