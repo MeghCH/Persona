@@ -274,7 +274,11 @@ Les protections et les tests sont détaillés dans [doc/audit-securite.md](doc/a
 1. Lit les 4 flux RSS (voir [Sources de news](#sources-de-news)) et ne garde que
    les articles publiés depuis moins de 48 h. L'ancre `#...` est retirée des URL.
 2. Insère dans `articles` avec `ON CONFLICT (url) DO NOTHING` : un article déjà
-   connu n'est pas réinséré, et seuls les **nouveaux** articles passent à la suite.
+   connu n'est pas réinséré. Puis `Articles à résumer` prend les articles des
+   dernières 24 h qui n'ont encore **ni résumé ni thème** : les nouveaux, et ceux
+   dont le lot a échoué à une collecte précédente (Gemini indisponible, quota
+   épuisé). Les plus récents d'abord, 50 au maximum ; le reste attend la collecte
+   suivante. Un article rejeté par l'évaluation a des thèmes : il n'est pas repris.
 3. Par lots de 10, Gemini (température 0.2, sortie JSON structurée) donne à chaque
    article 1 à 3 thèmes et un résumé factuel en français (2 phrases max, traduit
    si l'article est en anglais).

@@ -650,6 +650,33 @@ verifier('intention : une valeur inconnue donne le prompt visiteur', promptInten
 
 
 
+console.log('\n--- Collecte : reprise des articles sans résumé');
+
+const noeudCollecte = nom => collecte.nodes.find(n => n.name === nom);
+const suivant = nom => ((collecte.connections[nom] || {}).main || [[]])[0].map(l => l.node).join(',');
+const requeteReprise = (noeudCollecte('Articles à résumer') || { parameters: {} }).parameters.query || '';
+
+// Scénario vu dans la base : Gemini refuse un lot (quota), la collecte s'arrête, et les articles
+// déjà insérés n'étaient jamais repris (22 % des articles sans résumé).
+verifier('après l\'insertion, on passe par « Articles à résumer » avant les lots',
+  [suivant('Enregistrer les articles'), suivant('Articles à résumer'), suivant('Articles trouvés')].join(' > '),
+  'Articles à résumer > Articles trouvés > Par lots de 10');
+// Scénario : une collecte ne trouve aucun nouvel article. Sans alwaysOutputData, « Enregistrer les
+// articles » ne sort rien, la suite ne tourne pas, et les articles en attente attendent encore.
+verifier('la reprise tourne même sans nouvel article, et une seule fois par collecte',
+  [noeudCollecte('Enregistrer les articles').alwaysOutputData, noeudCollecte('Articles à résumer').executeOnce].join(','),
+  'true,true');
+// Un article rejeté par l'évaluation a des thèmes : le reprendre referait payer un résumé déjà refusé.
+verifier('on ne reprend que les articles jamais passés par l\'évaluation',
+  /WHERE summary IS NULL\s+AND tags = '\{\}'/.test(requeteReprise), true);
+// L'envoi ne prend que les articles collectés depuis 24 h : résumer les plus vieux ne sert à rien.
+verifier('seulement les articles des dernières 24 h, les plus récents d\'abord',
+  /fetched_at > now\(\) - INTERVAL '24 hours'/.test(requeteReprise) && /ORDER BY fetched_at DESC/.test(requeteReprise), true);
+// Scénario : après une journée sans Gemini, 200 articles attendent. Sans plafond, une seule collecte
+// enverrait 40 requêtes d'un coup.
+verifier('50 articles au maximum par collecte', /LIMIT 50;\s*$/.test(requeteReprise), true);
+
+
 console.log("\n--- Chat : outils de l'agent pour les sources");
 
 const outil = nom => agent.nodes.find(n => n.name === nom);
