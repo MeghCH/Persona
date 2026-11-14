@@ -40,9 +40,9 @@ Le prompt final est fait de 5 morceaux :
 - la date et l'heure du jour, dans le fuseau de l'utilisateur : Gemini ne les connaît pas
 - les préférences actuelles (sujets, jours, heure, ton, format, dernière newsletter), pour que
   l'agent n'ait pas besoin d'appeler `lire_preferences` à chaque message. On y ajoute le
-  prochain envoi prévu, calculé par le code avec la même règle que `[B] News - Envoi` (un
-  passage par heure, à l'heure pile, les jours choisis) : Gemini se trompe quand il compte les
-  jours lui-même
+  premier créneau qu'on peut encore régler et le prochain envoi prévu, calculés par le code avec
+  la même règle que `[B] News - Envoi` (un passage toutes les 5 minutes, les jours choisis, et
+  une seule newsletter toutes les 20 h) : Gemini se trompe quand il compte les jours lui-même
 - le ton : tutoiement si l'utilisateur a choisi le ton décontracté, vouvoiement sinon
 
 Exemple de parcours : un nouvel inscrit écrit « salut », l'agent lui demande ses sujets (étape
@@ -102,6 +102,17 @@ n8n du nœud `Choisir le prompt`.
 
   Les descriptions de `exclure_source` et `reinclure_source` disent aussi quand utiliser l'un ou
   l'autre.
+- **v3** (14/11) : les créneaux de 5 minutes. Avant, l'envoi ne passait qu'à l'heure pile, et on
+  ne pouvait pas montrer un envoi programmé sans attendre jusqu'à une heure. Ce qui change :
+  - la base dit que les envois partent par créneaux de 5 minutes, qu'on arrondit au créneau
+    suivant (8 h 07 = 8 h 10), et comment faire pour « dans 10 minutes » ;
+  - le prompt donne l'heure avec les minutes et le premier créneau possible (au moins 2 minutes
+    d'avance, pour que le réglage soit enregistré avant le passage de l'envoi) ;
+  - le prochain envoi prévu tient compte de la minute et de la règle des 20 h. Avant, l'agent
+    pouvait annoncer un envoi que `[B] News - Envoi` allait sauter ; la ligne « pas de nouvelle
+    newsletter avant » lui dit maintenant de prévenir l'utilisateur ;
+  - `modifier_horaire` prend une minute (0, 5… 55), et `Lire l'étape` lit `send_minute` et
+    `last_sent_at`.
 
 **Intention**
 
@@ -120,7 +131,7 @@ n8n du nœud `Choisir le prompt`.
 
 ## Tester une nouvelle version
 
-1. Modifier le bloc dans `Choisir le prompt` et changer `VERSION` (par exemple `agent-v3`).
+1. Modifier le bloc dans `Choisir le prompt` et changer `VERSION` (par exemple `agent-v4`).
 2. Lancer les tests : `docker compose exec -T n8n node - < scripts/test_scenarios.js`.
 3. Rejouer les mêmes conversations dans la bulle, une par étape, et comparer les réponses avec
    la version précédente :
@@ -132,11 +143,14 @@ n8n du nœud `Choisir le prompt`.
    - « exclus Le Monde », puis « en fait remets Le Monde » : Le Monde est exclue puis remise,
      et aucune autre source ne change
    - une demande qu'aucun outil ne sait faire (« ajoute Le Figaro ») : il le dit, et rien ne change
+   - « envoie-moi la newsletter dans 10 minutes » : il règle le bon créneau et annonce l'heure,
+     puis la newsletter arrive dans Mailpit (voir le [README](../README.md#5-tester-un-envoi-programmé))
 
-Pour l'agent, `scripts/test_scenarios.js` n'a qu'un test, dans la section
-`[A] Chat - Agent : prompt par étape` : sans centre d'intérêt, l'agent est à l'étape 1 (choisir
-ses sujets). Voir [tests-scenarios.md](tests-scenarios.md).
+Pour l'agent, `scripts/test_scenarios.js` a 4 tests. Dans la section `[A] Chat - Agent : prompt
+par étape` : sans centre d'intérêt, l'agent est à l'étape 1 (choisir ses sujets), et le prochain
+envoi tient compte de la minute et de la règle des 20 h. Dans `[A] Chat - Agent : outil
+modifier_horaire` : une minute hors créneau est refusée. Voir [tests-scenarios.md](tests-scenarios.md).
 
 Tout le reste se vérifie avec les conversations ci-dessus : les autres étapes, les règles de
 sécurité et la règle « un outil seulement pour ce que l'utilisateur a demandé » à chaque étape,
-l'outil `reinclure_source`, le calcul du prochain envoi, le ton et le prompt de l'intention.
+l'outil `reinclure_source`, l'arrondi des minutes par Gemini, le ton et le prompt de l'intention.

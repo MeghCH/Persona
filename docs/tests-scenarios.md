@@ -18,7 +18,7 @@ WORKFLOWS=workflows node scripts/test_scenarios.js
 ```
 
 Le script lance le vrai code des nœuds des workflows. Gemini est remplacé par des réponses
-écrites à la main. Rien n'est écrit en base. Les 29 tests doivent passer : `29 réussis, 0 ratés`.
+écrites à la main. Rien n'est écrit en base. Les 35 tests doivent passer : `35 réussis, 0 ratés`.
 
 ## Comment ils sont rangés
 
@@ -76,6 +76,19 @@ Nœud : `Choisir le prompt`. Détails dans [prompts-IA.md](prompts-IA.md).
 | Ce qui tourne mal | Ce qu'on attend |
 |---|---|
 | rien (cas normal) : un nouvel inscrit n'a pas encore de centre d'intérêt | l'agent est à l'étape 1, choisir ses sujets |
+| rien (cas normal) : à 14 h 23, l'utilisateur règle 14 h 30 | le prompt annonce le prochain envoi aujourd'hui à 14 h 30 |
+| l'utilisateur a déjà reçu une newsletter il y a 3 h : `[B] News - Envoi` n'en enverra pas d'autre avant 20 h | le prompt annonce le lendemain, et dit jusqu'à quand il faut attendre |
+
+L'heure est arrêtée pour ces tests : le script passe au nœud une fausse `Date`, fixée au samedi
+14 novembre 2026 à 14 h 23 (heure de Paris).
+
+### [A] Chat - Agent : outil modifier_horaire
+
+Nœud : `modifier_horaire`. Le script lance la vraie expression régulière de la requête SQL.
+
+| Ce qui tourne mal | Ce qu'on attend |
+|---|---|
+| l'IA envoie une minute qui n'est pas un créneau (7, 60, -5) ou une valeur piégée | refusée ; 0, 5… 55 sont acceptées |
 
 ## B · Newsletter
 
@@ -132,6 +145,17 @@ Nœuds : `Préparer les articles`, `Articles pour l'utilisateur`.
 | une valeur inconnue arrive dans `format` | mise en page `resume`, pas d'email cassé |
 | le fuseau en base n'est pas connu de Node | heure de Paris, sans planter |
 | les sources exclues sont retirées après le `LIMIT` (moins d'articles que demandé), ou pas du tout | le filtre est dans le `WHERE`, avant le `LIMIT` |
+
+### [B] News - Envoi : horaire
+
+Nœuds : `Schedule Trigger` (de l'envoi et de la collecte), `Utilisateurs à servir`,
+`Envoyer la newsletter`.
+
+| Ce qui tourne mal | Ce qu'on attend |
+|---|---|
+| l'utilisateur choisit 14 h 35, mais l'envoi ne passe qu'à l'heure pile ou ne regarde pas la minute | l'envoi passe toutes les 5 minutes (`*/5 * * * *`) et compare l'heure et le créneau de 5 minutes |
+| la collecte et l'envoi partent à la même minute : l'envoi ne voit pas les articles de l'heure | la collecte part à une minute qui n'est jamais un créneau d'envoi (h52) |
+| n8n ajoute « This email was sent automatically with n8n » à la fin de la newsletter | l'option `appendAttribution` est à `false` |
 
 ## Commun
 

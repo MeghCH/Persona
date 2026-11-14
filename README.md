@@ -13,7 +13,11 @@ l'actualité par email, aux jours et à l'heure qu'on veut.
 - **Git**
 - **Sous Windows** : WSL 2 avec Ubuntu, et Docker Desktop avec l'intégration WSL activée. Toutes
   les commandes se tapent dans le terminal Ubuntu, et le projet se clone dans Ubuntu (`~`), pas dans `C:`.
-- **Des ports libres** : 5432 (base), 5678 (n8n), 8025 (emails), 8090 (chatbot)
+- **Des ports libres** : 5432 (base), 5678 (n8n), 8025 (emails), 8090 (chatbot). Ils ne sont
+  ouverts que sur la machine (`127.0.0.1`), pas sur le réseau
+- **Aucun nœud communautaire** : Persona n'utilise que les nœuds fournis avec n8n (image
+  `n8nio/n8n:2.44.7`), il n'y a rien à installer dans n8n. Les données sont dans PostgreSQL, que
+  `setup.sh` prépare tout seul (étape 1)
 - **Une clé API Gemini**, gratuite sur https://aistudio.google.com/apikey. Sans clé, l'inscription
   et la connexion marchent, mais pas l'agent ni la collecte des news. Le quota gratuit est compté
   par modèle : Persona utilise `gemini-3.5-flash-lite` (voir [docs/optimisation-IA.md](docs/optimisation-IA.md)).
@@ -84,10 +88,42 @@ Dans n8n, ouvrir chaque workflow et cliquer sur _Publish_, dans cet ordre :
 3. `[B] News - Collecte`, `[B] News - Désinscription` et `[Commun] Maintenance RGPD`
 4. `[B] News - Envoi` seulement si on veut envoyer les newsletters (elles arrivent dans Mailpit)
 
+Puis, la première fois, ouvrir `[B] News - Collecte` et cliquer sur _Execute workflow_ (moins
+d'une minute). Sinon la base n'a aucun article jusqu'à la première collecte automatique, à h52, et
+aucune newsletter ne peut partir.
+
 C'est prêt :
 
 - **chatbot** : http://localhost:8090, cliquer sur la bulle et taper `inscription`
 - **emails** : http://localhost:8025, où arrive le code d'inscription
+
+### 5. Tester un envoi programmé
+
+Les newsletters partent par créneaux de 5 minutes : `[B] News - Envoi` passe à h00, h05, h10…
+On peut donc régler un envoi quelques minutes plus tard et le voir arriver.
+
+1. Vérifier que l'étape 4 est faite : `[B] News - Envoi` publié, et une collecte lancée à la main.
+2. Dans le chat (http://localhost:8090) : `inscription`, puis suivre les étapes jusqu'au code
+   reçu dans Mailpit.
+3. Donner des sujets larges, pour être sûr d'avoir des articles : « politique, international et
+   société ».
+4. Demander un envoi dans quelques minutes : « envoie-moi la newsletter tous les jours dans 10
+   minutes », ou une heure précise : « tous les jours à 14 h 35 ». L'agent arrondit au créneau
+   suivant (14 h 32 devient 14 h 35) et répond avec la date et l'heure du prochain envoi.
+5. À l'heure dite, la newsletter arrive dans Mailpit (http://localhost:8025) dans la minute. Dans
+   n8n, l'onglet _Executions_ de `[B] News - Envoi` montre un passage toutes les 5 minutes.
+
+Pour refaire le test avec le même compte : une seule newsletter part toutes les 20 h (pour ne pas
+en envoyer deux le jour où on change d'heure), et l'agent le dit. Créer un autre compte, ou
+effacer la date du dernier envoi :
+
+```bash
+docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d persona -c "UPDATE preferences SET last_sent_at = NULL"'
+```
+
+Si rien n'arrive : aucun article de moins de 24 h ne correspond aux sujets choisis (lancer une
+collecte, ou choisir d'autres sujets), ou l'email a été bloqué par la vérification avant envoi
+(`bash scripts/journal.sh` montre un événement `newsletter_blocked`).
 
 ### Au quotidien
 
@@ -233,8 +269,8 @@ du nœud Postgres), jamais de concaténation : c'est ce qui protège de l'inject
 | `[A] Chat - Entrée`         | `a_chat_entree.json`           | à chaque message du chat       | Postgres, SMTP   |
 | `[A] Chat - Agent`          | `a_chat_agent.json`            | appelé par `Chat - Entrée`     | Postgres, Gemini |
 | `[A] Chat - Intention`      | `a_chat_intention.json`        | appelé par `Chat - Entrée`     | Gemini           |
-| `[B] News - Collecte`       | `b_news_collecte.json`         | toutes les heures              | Postgres, Gemini |
-| `[B] News - Envoi`          | `b_news_envoi.json`            | toutes les heures à h00        | Postgres, SMTP   |
+| `[B] News - Collecte`       | `b_news_collecte.json`         | toutes les heures à h52        | Postgres, Gemini |
+| `[B] News - Envoi`          | `b_news_envoi.json`            | toutes les 5 minutes           | Postgres, SMTP   |
 | `[B] News - Désinscription` | `b_news_desinscription.json`   | lien `/unsubscribe` des emails | Postgres         |
 | `[Commun] Maintenance RGPD` | `commun_maintenance_RGPD.json` | tous les jours à 3 h           | Postgres         |
 
@@ -313,16 +349,21 @@ partie des thèmes de la collecte (`sport`, `technologie`…).
 Le prompt de l'agent change selon l'étape de l'utilisateur, lue en base par `Lire l'étape` : newsletter
 en pause, choisir ses sujets (1 sur 3), régler la première newsletter (2 sur 3), donner son avis
 (3 sur 3), ou tout est réglé. Chaque étape a son objectif et annonce la suivante. Le prompt contient
-aussi les préférences actuelles, la date du jour et le prochain envoi prévu (calculé par le code), et
-suit le ton choisi par l'utilisateur. Les étapes et les versions
+aussi les préférences actuelles, la date et l'heure, le premier créneau d'envoi possible et le
+prochain envoi prévu (calculés par le code, avec la règle des 20 h de `[B] News - Envoi`), et suit
+le ton choisi par l'utilisateur. L'heure d'envoi se règle par créneaux de 5 minutes : `modifier_horaire`
+refuse une minute qui n'est pas 0, 5, 10… 55, et le prompt demande d'arrondir au créneau suivant. Les étapes et les versions
 successives des prompts sont dans [docs/prompts-IA.md](docs/prompts-IA.md).
 
 Les protections et les tests sont détaillés dans [docs/audit-securite/audit-secu.md](docs/audit-securite/audit-secu.md).
 
 ### `[B] News - Collecte`
 
-1. Lit les 4 flux RSS (voir [Sources de news](#sources-de-news)) et ne garde que
-   les articles publiés depuis moins de 48 h. L'ancre `#...` est retirée des URL.
+1. Toutes les heures à h52, lit les 4 flux RSS (voir [Sources de news](#sources-de-news)) et
+   ne garde que les articles publiés depuis moins de 48 h. L'ancre `#...` est retirée des URL.
+   h52 n'est jamais un créneau d'envoi, et la collecte (une vingtaine de secondes) est finie
+   avant les envois de h00, les plus courants. Avant, elle partait à h00 en même temps que
+   l'envoi, qui ne voyait donc jamais les articles de l'heure.
 2. Insère dans `articles` avec `ON CONFLICT (url) DO NOTHING` : un article déjà
    connu n'est pas réinséré. Puis `Articles à résumer` prend les articles des
    dernières 24 h qui n'ont encore **ni résumé ni thème** : les nouveaux, et ceux
@@ -358,10 +399,11 @@ du lot en cours peuvent être modifiés.
 
 ### `[B] News - Envoi`
 
-1. Chaque heure, sélectionne les utilisateurs dont l'abonnement est actif
-   (`is_active`) et dont l'heure (`send_hour`) et le jour (`send_days`) d'envoi
-   correspondent à l'heure actuelle **dans leur fuseau** (`timezone`). Un
-   utilisateur déjà servi il y a moins de 20 h est ignoré (pas de double envoi).
+1. Toutes les 5 minutes, sélectionne les utilisateurs dont l'abonnement est actif
+   (`is_active`) et dont le jour (`send_days`), l'heure (`send_hour`) et la minute
+   (`send_minute` : 0, 5, 10… 55) d'envoi correspondent au créneau actuel **dans leur
+   fuseau** (`timezone`). Un utilisateur déjà servi il y a moins de 20 h est ignoré
+   (pas de double envoi, même s'il vient de changer d'heure).
 2. Choisit ses `max_articles` articles les plus récents (5 par défaut) dont les
    thèmes croisent ses `interests`, qui ont un résumé et ont été collectés dans
    les dernières 24 h. Les sources exclues dans le chat (`excluded_sources`) sont
@@ -386,7 +428,8 @@ du lot en cours peuvent être modifiés.
    (`<script>`, `onerror=`…) et uniquement des liens `http(s)`. Si un point échoue,
    l'email n'est pas envoyé et un événement `newsletter_blocked` est ajouté dans
    `audit_log` avec la liste des problèmes.
-5. Envoie l'email, l'enregistre dans `sent_newsletters` (avec les articles
+5. Envoie l'email (sans la mention « This email was sent automatically with n8n »
+   que n8n ajoute par défaut), l'enregistre dans `sent_newsletters` (avec les articles
    réellement envoyés) et met à jour `last_sent_at`.
 
 À adapter si on sort du local : l'adresse d'expéditeur dans le nœud `Envoyer la newsletter`,
@@ -445,7 +488,7 @@ WORKFLOWS=workflows node scripts/test_scenarios.js
 Le script lance le vrai code des nœuds des workflows, avec des réponses de Gemini écrites à la
 main. Rien n'est écrit en base.
 
-29 tests, qui doivent tous passer (`29 réussis, 0 ratés`). Le script les range comme les
+35 tests, qui doivent tous passer (`35 réussis, 0 ratés`). Le script les range comme les
 workflows : un groupe par partie (A, B, Commun), puis une section par workflow, qui affiche les
 nœuds qu'elle lance.
 
@@ -454,11 +497,13 @@ nœuds qu'elle lance.
 | A · Chatbot    | [A] Chat - Entrée : messages envoyés à l'IA | 2     | rien ne part vers l'IA pendant l'inscription ou la connexion ; une rafale de messages est refusée                |
 | A · Chatbot    | [A] Chat - Entrée : comprendre les phrases  | 2     | une phrase d'inscription est comprise ; aucune phrase ne supprime un compte                                      |
 | A · Chatbot    | [A] Chat - Entrée : code d'inscription      | 2     | le bon code crée le compte ; 5 essais au maximum                                                                 |
-| A · Chatbot    | [A] Chat - Agent : prompt par étape         | 1     | sans centre d'intérêt, l'agent est à l'étape 1                                                                   |
+| A · Chatbot    | [A] Chat - Agent : prompt par étape         | 3     | sans centre d'intérêt, l'agent est à l'étape 1 ; prochain envoi à la minute près, règle des 20 h                 |
+| A · Chatbot    | [A] Chat - Agent : outil modifier_horaire   | 1     | une minute hors créneau (7, 60) ou piégée est refusée                                                            |
 | B · Newsletter | [B] News - Collecte : contrôle des résumés  | 9     | un bon résumé est gardé, les mauvais sont rejetés, même si l'IA relectrice est en panne                          |
 | B · Newsletter | [B] News - Collecte : reprise des articles  | 1     | les articles d'un lot raté sont repris                                                                           |
 | B · Newsletter | [B] News - Envoi : sécurité de l'email      | 5     | le HTML est échappé ; un lien `javascript:`, un `Bcc` caché ou un lien de désinscription absent bloquent l'email |
 | B · Newsletter | [B] News - Envoi : réglages de l'abonné     | 6     | les 3 formats, un format ou un fuseau inconnu, les sources exclues                                               |
+| B · Newsletter | [B] News - Envoi : horaire                  | 3     | envoi toutes les 5 minutes au bon créneau ; collecte jamais en même temps ; pas de mention n8n                   |
 | Commun         | Modèle Gemini                               | 1     | les 4 nœuds Gemini ont le même modèle, écrit en toutes lettres                                                   |
 
 Le détail de chaque test, et ce qui n'est pas testé, est dans
