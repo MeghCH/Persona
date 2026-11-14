@@ -127,7 +127,7 @@ pas `[A] Chat - Intention`. Il faut le faire à la main, dans cet ordre :
    l'IA échouent.
 2. Importer les workflows :
    ```bash
-   docker compose exec n8n n8n import:workflow --separate --input=/home/node/exports
+   bash scripts/workflows.sh import
    ```
 3. Ré-associer les credentials comme après chaque import (voir le README), dont `LLM Persona`
    dans le nœud `Modèle Gemini` de `[A] Chat - Intention`, puis réactiver les workflows : un
