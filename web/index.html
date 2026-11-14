@@ -116,7 +116,6 @@
       .cmd span { text-align: left; }
     }
 
-    /* bulle de chat n8n */
     :root {
       --chat--font-family: Inter, system-ui, sans-serif;
       --chat--color--primary: var(--accent);
@@ -266,7 +265,6 @@
       },
     });
 
-    // quand le bot demande un mot de passe, on le cache pendant la saisie et dans la conversation
     const PW_PROMPT = /choisissez un (autre )?mot de passe|votre mot de passe \?|retapez votre mot de passe/i;
     const MASK = '••••••••';
     let maskNextUserMessage = false;
@@ -277,7 +275,6 @@
     }
 
     function setTextarea(ta, value) {
-      // sinon le widget ne voit pas le changement
       Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, value);
       ta.dispatchEvent(new Event('input', { bubbles: true }));
     }

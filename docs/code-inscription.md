@@ -66,9 +66,10 @@ envoyer de vrais emails, sur Gmail. Les deux réglages sont à l'étape 2 du REA
 docker compose exec -T n8n node - < scripts/test_scenarios.js
 ```
 
-2 tests pour le code : avec le bon code, le compte est créé, et un code n'accepte que 5 essais.
-Un troisième, dans la partie chat, vérifie que rien ne part vers l'IA pendant l'inscription, code
-compris.
+2 tests pour le code, dans la section `[A] Chat - Entrée : code d'inscription` : avec le bon code,
+le compte est créé, et un code n'accepte que 5 essais. Un troisième, dans la section
+`[A] Chat - Entrée : messages envoyés à l'IA`, vérifie que rien ne part vers l'IA pendant
+l'inscription, code compris. Détail dans [tests-scenarios.md](tests-scenarios.md).
 
 Les autres protections (code tiré avec `gen_random_bytes`, haché, 3 envois au maximum, rien pour un
 email déjà inscrit…) ne sont plus testées automatiquement. Elles sont toujours dans le workflow, et

@@ -40,15 +40,12 @@ services:
       GENERIC_TIMEZONE: Europe/Paris
       TZ: Europe/Paris
       N8N_DIAGNOSTICS_ENABLED: "false"
-      # Une exécution non enregistrée (le chat, qui reçoit des mots de passe) reste en base,
-      # invisible, jusqu'au nettoyage suivant : toutes les minutes au lieu de toutes les 15 min.
       EXECUTIONS_DATA_PRUNE_HARD_DELETE_INTERVAL: 1
     volumes:
       - n8n_data:/home/node/.n8n
       - ./workflows:/home/node/exports
 
   # Fausse boîte mail pour tester le code d'inscription : http://localhost:8025
-  # (rien ne part vraiment). Dans n8n : credential SMTP, Host mailpit, Port 1025, sans SSL.
   mailpit:
     image: axllent/mailpit:v1.27.7
     restart: unless-stopped

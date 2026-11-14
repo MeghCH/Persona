@@ -173,7 +173,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
 -- ---------------------------------------------------------------------
 -- Messages envoyés à l'IA (Gemini)
 -- Une ligne par message qui passe par l'IA. Elle sert à refuser les envois
--- trop rapides ou trop nombreux (voir doc/protection-deni-de-service.md).
+-- trop rapides ou trop nombreux (voir docs/protection-deni-of-service.md).
 -- On n'y stocke jamais le texte du message.
 -- Quand un compte est supprimé, ses lignes restent jusqu'au nettoyage de nuit (user_id passe
 -- à NULL) : sinon, supprimer son compte remettrait à zéro le comptage de la journée.

@@ -14,7 +14,7 @@ comme prévu en phase 2.
 - Depuis le premier audit (29/10), on a ajouté deux protections : une limite du nombre de messages
   envoyés à l'IA, et un code reçu par email avant de créer un compte.
 - Les 75 tests de `scripts/test_scenarios.js` passent (lancés le 13/11). Depuis le 14/11, le
-  script en a 31 (voir la mise à jour ci-dessous).
+  script en a 29 (voir la mise à jour ci-dessous).
 - Les 4 failles trouvées chez B sont corrigées.
 - Il reste des risques, dont 3 à traiter avant une mise en ligne : Postgres et n8n ouverts sur tout
   le réseau, pas de HTTPS, et pas de limite d'envois de codes par adresse email.
@@ -27,7 +27,7 @@ Ce qui a changé depuis le 13/11 et touche cet audit. Le reste du document est c
   nœud. Avant, n8n prenait `gemini-3-flash-preview` par défaut. Le quota de 20 requêtes par jour
   cité plus bas était celui de l'ancien modèle : le nouveau a tenu au moins 31 requêtes le 14/11
   sans aucun refus. La limite de 600 messages par jour reste à régler sur son vrai quota (voir
-  [optimisation.md](../optimisation.md)).
+  [optimisation-IA.md](../optimisation-IA.md)).
 - **Une erreur de l'agent, trouvée à la main.** À « réinclure Le Monde », qu'il ne savait pas
   faire, l'agent a appelé `exclure_source` avec France Info, puis a répondu sans le dire. Ce n'est
   pas une faille (il ne pouvait toucher qu'au compte connecté), mais c'est le risque « Excessive
@@ -39,24 +39,27 @@ Ce qui a changé depuis le 13/11 et touche cet audit. Le reste du document est c
   - une règle dans le prompt, à toutes les étapes : un outil ne sert qu'à ce que l'utilisateur a
     demandé ; sinon, l'agent le dit et ne modifie rien.
 
-  Revérifié à la main, et couvert par les tests de l'agent (voir [prompts.md](../prompts.md)).
+  Revérifié à la main. Aucun test automatique ne vérifie ces deux corrections : il faut rejouer les
+  conversations de [prompts-IA.md](../prompts-IA.md#tester-une-nouvelle-version) quand on modifie
+  l'agent.
 - **Les préférences du chat dans l'email.** B applique maintenant le format et les sources exclues.
   Les sources exclues sont filtrées en SQL, avec une liste passée en paramètre : pas d'injection
   possible. Le ton et le feedback ne sont toujours pas utilisés par B.
 - **Les articles perdus.** Quand Gemini refusait un lot, ses articles n'étaient jamais repris. Ils
   le sont maintenant, 50 au plus par collecte, et passent par les mêmes contrôles (contrôle
   automatique, puis IA relectrice).
-- **Les tests.** Le script est passé à 124 tests, puis on l'a réduit à 31 : un test par protection
-  pour la collecte et l'envoi, et pour le reste un ou deux par domaine (le cas normal et le cas le
-  plus important à bloquer). Les 31 passent (lancés le 14/11). Les tests de la collecte et de
-  l'email cités plus bas (HTML, lien `javascript:`, adresse piégée, résumé piégé) sont toujours
-  là. D'autres n'existent plus : le comptage en une seule requête (`reserver_appel_ia`), les liens
-  retirés de la réponse de l'intention, le code tiré avec `gen_random_bytes`. Ces protections,
-  elles, sont toujours dans les workflows. Côté chat, les tests qui restent sont : le mot de passe
-  qui ne part jamais à l'IA, la limite de 6 messages par minute, une phrase d'inscription comprise,
-  aucune intention qui supprime un compte (toutes essayées, connecté ou non), le bon code qui crée
-  le compte et ses 5 essais, les règles du prompt de l'agent à chaque étape, et `reinclure_source`
-  qui agit sur le compte de la session.
+- **Les tests.** Le script est passé à 124 tests, puis on l'a réduit à 29, rangés par workflow :
+  un test par protection pour la collecte et l'envoi, et ailleurs le cas normal et le cas le plus
+  important à bloquer. Les 29 passent (lancés le 14/11). Les tests de la collecte et de l'email
+  cités plus bas (HTML, lien `javascript:`, adresse piégée, résumé piégé) sont toujours là.
+  D'autres n'existent plus : le comptage en une seule requête (`reserver_appel_ia`), les liens
+  retirés de la réponse de l'intention, le code tiré avec `gen_random_bytes`, les règles du prompt
+  de l'agent à chaque étape, l'outil `reinclure_source`. Ces protections, elles, sont toujours
+  dans les workflows. Côté chat, les tests qui restent sont : le mot de passe qui ne part jamais à
+  l'IA, la limite de 6 messages par minute, une phrase d'inscription comprise, aucune intention
+  qui supprime un compte (toutes essayées, connecté ou non), le bon code qui crée le compte et ses
+  5 essais, et l'étape 1 de l'agent. La liste complète est dans
+  [tests-scenarios.md](../tests-scenarios.md).
 - **Le registre RGPD.** Gemini y est noté comme sous-traitant qui reçoit les messages du chat, et
   la table `chat_ai_requests` y a été ajoutée (voir [normes-RGPD.md](../normes-RGPD.md)).
 
@@ -82,7 +85,7 @@ puis regardait ce qui avait changé dans la base.
 vrai code des nœuds des workflows. 75 tests, tous passent. Ils couvrent la collecte, l'envoi, le
 choix des messages qui partent vers l'IA, les limites, la lecture des réponses de l'IA, le chemin
 vers l'agent et le code d'inscription. La CI de GitHub les relance à chaque pull request.
-Depuis le 14/11, il en reste 31 : la lecture des réponses de l'IA et le chemin vers l'agent ne
+Depuis le 14/11, il en reste 29 : la lecture des réponses de l'IA et le chemin vers l'agent ne
 sont plus testés, et il ne reste qu'une limite (6 messages par minute).
 
 **3. Les essais en direct (novembre).** Pour les deux nouveautés, on a joué des vrais scénarios
@@ -155,7 +158,7 @@ Autres réglages : l'agent réessaie 2 fois (au lieu de 3), chaque exécution es
 pour qu'on ne puisse pas remplir le journal). Les commandes exactes (`inscription`, `connexion`,
 `aide`…) marchent même quand la limite est atteinte, car elles n'ont pas besoin de l'IA.
 
-Détails : [protection-deni-de-service.md](../protection-deni-de-service.md).
+Détails : [protection-deni-of-service.md](../protection-deni-of-service.md).
 
 ### Comprendre les phrases libres
 

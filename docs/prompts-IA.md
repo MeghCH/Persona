@@ -12,7 +12,7 @@ assemble le prompt juste avant l'appel à Gemini.
 
 Le modèle est `gemini-3.5-flash-lite` depuis le 14/11. Avant, c'était `gemini-3-flash-preview` :
 les versions plus bas datées d'avant le 14/11 ont été écrites et testées avec lui (voir
-[optimisation.md](optimisation.md#les-deux-modèles-essayés)).
+[optimisation-IA.md](optimisation-IA.md#les-deux-modèles-essayés)).
 
 ## L'agent : un prompt par étape
 
@@ -133,12 +133,10 @@ n8n du nœud `Choisir le prompt`.
      et aucune autre source ne change
    - une demande qu'aucun outil ne sait faire (« ajoute Le Figaro ») : il le dit, et rien ne change
 
-Pour l'agent, `scripts/test_scenarios.js` garde 3 tests :
+Pour l'agent, `scripts/test_scenarios.js` n'a qu'un test, dans la section
+`[A] Chat - Agent : prompt par étape` : sans centre d'intérêt, l'agent est à l'étape 1 (choisir
+ses sujets). Voir [tests-scenarios.md](tests-scenarios.md).
 
-- sans centre d'intérêt, l'agent est à l'étape 1 (choisir ses sujets) ;
-- les 5 étapes gardent les règles de sécurité et la règle « un outil seulement pour ce que
-  l'utilisateur a demandé » ;
-- `reinclure_source` est branché sur l'agent et agit sur le compte de la session.
-
-Le reste (le calcul du prochain envoi, le ton, le prompt de l'intention…) se vérifie avec les
-conversations ci-dessus.
+Tout le reste se vérifie avec les conversations ci-dessus : les autres étapes, les règles de
+sécurité et la règle « un outil seulement pour ce que l'utilisateur a demandé » à chaque étape,
+l'outil `reinclure_source`, le calcul du prochain envoi, le ton et le prompt de l'intention.

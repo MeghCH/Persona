@@ -139,7 +139,7 @@ Nos conseils à B :
 - On peut changer d'email sans confirmer la nouvelle adresse. Il faudrait envoyer un lien de
   confirmation.
 - Le nombre de messages envoyés à l'IA est maintenant limité (voir
-  [protection-deni-de-service.md](protection-deni-de-service.md)). Il n'y a toujours pas de limite
+  [protection-deni-of-service.md](protection-deni-of-service.md)). Il n'y a toujours pas de limite
   par adresse IP, ni sur le nombre d'inscriptions. Le blocage après 5 erreurs limite déjà
   l'essai de mots de passe.
 - Tout passe en HTTP. Il faudra du HTTPS dès que le projet sera en ligne, car les mots de passe

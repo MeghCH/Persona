@@ -1,4 +1,4 @@
-# Secrets : le .env et ses copies (.env.local, .env.bak…). Seul l'exemple est commité.
+# Secrets
 .env
 .env.*
 !.env.example
@@ -19,9 +19,6 @@ __pycache__/
 venv/
 node_modules/
 *.log
-
-# Réglages locaux de Claude Code (permissions propres à chacun)
-.claude/settings.local.json
 
 # Éditeurs et systèmes
 .DS_Store
