@@ -414,4 +414,5 @@ La réponse doit commencer par `<?xml`.
 - [doc/protection-deni-de-service.md](doc/protection-deni-de-service.md) : les limites de messages vers l'IA
 - [doc/audit-securite.md](doc/audit-securite.md) : l'audit de sécurité du chatbot et des workflows de B
 - [doc/tests-evaluation.md](doc/tests-evaluation.md) : les tests de l'évaluation avant l'envoi
+- [doc/optimisation.md](doc/optimisation.md) : ce que coûte chaque workflow en temps et en tokens, et le quota Gemini
 - [doc/normes-RGPD.md](doc/normes-RGPD.md) : la politique de confidentialité et le registre des traitements
