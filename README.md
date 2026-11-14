@@ -46,11 +46,11 @@ local, qui ne sert qu'à cette installation.
 Puis _Create_ → _Credential_, trois fois. **Les noms doivent être exactement ceux-ci** : c'est grâce
 à eux que n8n branche les workflows dessus.
 
-| Nom | Type | Réglages |
-|---|---|---|
-| `Postgres Persona` | Postgres | Host `postgres`, Database `persona`, User `persona_app`, Password : la valeur de `PERSONA_DB_PASSWORD` dans `.env`, Port `5432`, SSL `Disable` |
-| `SMTP Persona` | SMTP | Host `mailpit`, Port `1025`, SSL/TLS désactivé, User et Password vides |
-| `LLM Persona` | Google Gemini(PaLM) Api | API Key : la clé Gemini (laisser le Host par défaut) |
+| Nom                | Type                    | Réglages                                                                                                                                       |
+| ------------------ | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Postgres Persona` | Postgres                | Host `postgres`, Database `persona`, User `persona_app`, Password : la valeur de `PERSONA_DB_PASSWORD` dans `.env`, Port `5432`, SSL `Disable` |
+| `SMTP Persona`     | SMTP                    | Host `mailpit`, Port `1025`, SSL/TLS désactivé, User et Password vides                                                                         |
+| `LLM Persona`      | Google Gemini(PaLM) Api | API Key : la clé Gemini (laisser le Host par défaut)                                                                                           |
 
 n8n utilise `persona_app` et pas le compte admin : même si un attaquant détourne une requête,
 il ne peut pas supprimer de tables.
@@ -64,7 +64,11 @@ d'expéditeur dans les nœuds `Envoyer le code` et `Envoyer la newsletter`.
 ### 3. Brancher les workflows sur les credentials
 
 ```bash
-docker compose exec n8n n8n import:workflow --separate --input=/home/node/exports
+bash scripts/workflows.sh import # Git -> n8n : tous les workflows
+```
+
+```bash
+bash scripts/workflows.sh import b_news_envoi  # Git -> n8n : un seul
 ```
 
 Cette commande réimporte les workflows du dossier `workflows/`. Au passage, n8n branche chaque
@@ -87,106 +91,116 @@ C'est prêt :
 
 ### Au quotidien
 
-| Pour... | Faire |
-|---|---|
-| arrêter | `docker compose down` |
-| relancer | `bash scripts/setup.sh` |
-| récupérer le travail de l'autre | `git pull`, `bash scripts/setup.sh`, puis les étapes 3 et 4 |
-| exporter ses workflows modifiés | voir [Travailler à deux](#travailler-à-deux) |
-| voir les derniers événements du journal | `bash scripts/journal.sh` (ou `bash scripts/journal.sh 50`) |
-| lancer les tests | `docker compose exec -T n8n node - < scripts/test_scenarios.js` |
-| tout effacer et repartir de zéro | `docker compose down -v`, puis les étapes 1 à 4 |
+| Pour...                                      | Faire                                                                                   |
+| -------------------------------------------- | --------------------------------------------------------------------------------------- |
+| arrêter                                      | `docker compose down`                                                                   |
+| relancer                                     | `bash scripts/setup.sh`                                                                 |
+| récupérer le travail de l'autre              | `git pull`, `bash scripts/setup.sh`, puis les étapes 3 et 4                             |
+| mettre dans Git un workflow modifié dans n8n | `bash scripts/workflows.sh export <nom>` (voir [Travailler à deux](#travailler-à-deux)) |
+| voir les derniers événements du journal      | `bash scripts/journal.sh` (ou `bash scripts/journal.sh 50`)                             |
+| lancer les tests                             | `docker compose exec -T n8n node - < scripts/test_scenarios.js`                         |
+| tout effacer et repartir de zéro             | `docker compose down -v`, puis les étapes 1 à 4                                         |
 
 `bash scripts/setup.sh` met aussi la base à jour : le schéma est dans un seul fichier,
 `db/schema/02-schema.sql`, et une base existante reçoit les nouvelles tables et colonnes sans
 perdre ses données.
 
-L'étape 3 remplace les workflows de n8n par ceux du dossier `workflows/`, et les dépublie. Si on a
-modifié un workflow dans n8n sans l'exporter, le faire avant.
-
 `docker compose down -v` efface tout : la base, mais aussi le compte n8n, les credentials et les
 workflows de n8n.
 
-Toujours importer avec la commande de l'étape 3, jamais avec _Import from File_ dans n8n : n8n en
-ferait une copie avec un nouvel id, qui prendrait la place de l'original.
-
 ### Si ça ne marche pas
 
-| Ce qu'on voit | Quoi faire |
-|---|---|
-| `port is already allocated` au démarrage | un autre programme utilise un des ports (souvent un PostgreSQL installé sur l'ordinateur, sur 5432) : l'arrêter, puis relancer |
-| la page ne répond pas (Windows) | garder Docker Desktop et un terminal Ubuntu ouverts |
-| des nœuds en rouge dans n8n | un credential n'a pas exactement le bon nom, ou a été créé après l'import : corriger le nom, puis refaire les étapes 3 et 4 |
-| « Je n'ai pas pu envoyer l'email » | vérifier les réglages de `SMTP Persona`, et que Mailpit tourne (`docker compose ps`) |
-| « Désolé, je n'ai pas pu traiter votre demande » | clé Gemini absente ou invalide, ou quota Gemini du jour épuisé |
-| une collecte en erreur « too many requests », des articles sans résumé | quota Gemini du jour épuisé : les articles sont repris à la collecte suivante (voir [`[B] News - Collecte`](#b-news---collecte), étape 2) |
-| les réglages du chat (format, sources exclues) ne changent rien à l'email | `[B] News - Envoi` n'a pas été réimporté depuis : refaire l'étape 3, ou [importer ce seul workflow](#récupérer-un-workflow-modifié-par-lautre), puis le republier |
-| « Error in workflow » | la base est arrêtée : relancer `bash scripts/setup.sh` |
-| le chat répond comme une ancienne version | une copie du workflow est publiée à la place de l'original : dans n8n, archiver la copie et publier l'original |
-| autre chose | `docker compose logs n8n` montre les erreurs de n8n |
+| Ce qu'on voit                                                             | Quoi faire                                                                                                                                |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `port is already allocated` au démarrage                                  | un autre programme utilise un des ports (souvent un PostgreSQL installé sur l'ordinateur, sur 5432) : l'arrêter, puis relancer            |
+| la page ne répond pas (Windows)                                           | garder Docker Desktop et un terminal Ubuntu ouverts                                                                                       |
+| des nœuds en rouge dans n8n                                               | un credential n'a pas exactement le bon nom, ou a été créé après l'import : corriger le nom, puis refaire les étapes 3 et 4               |
+| « Je n'ai pas pu envoyer l'email »                                        | vérifier les réglages de `SMTP Persona`, et que Mailpit tourne (`docker compose ps`)                                                      |
+| « Désolé, je n'ai pas pu traiter votre demande »                          | clé Gemini absente ou invalide, ou quota Gemini du jour épuisé                                                                            |
+| une collecte en erreur « too many requests », des articles sans résumé    | quota Gemini du jour épuisé : les articles sont repris à la collecte suivante (voir [`[B] News - Collecte`](#b-news---collecte), étape 2) |
+| les réglages du chat (format, sources exclues) ne changent rien à l'email | `[B] News - Envoi` n'a pas été réimporté depuis : `bash scripts/workflows.sh import b_news_envoi`, puis le republier                      |
+| « Error in workflow »                                                     | la base est arrêtée : relancer `bash scripts/setup.sh`                                                                                    |
+| le chat répond comme une ancienne version                                 | une copie du workflow est publiée à la place de l'original : dans n8n, archiver la copie et publier l'original                            |
+| autre chose                                                               | `docker compose logs n8n` montre les erreurs de n8n                                                                                       |
 
 ## Travailler à deux
 
-Les workflows se modifient dans n8n, puis s'exportent dans le dossier `workflows/`. Chaque
-workflow a son id et son fichier :
+Un workflow existe à deux endroits : **dans n8n**, où on le modifie, et **dans le dossier
+`workflows/`**, qui est dans Git. Les deux ne se synchronisent pas tout seuls : on passe de l'un à
+l'autre avec `scripts/workflows.sh`.
 
-| Workflow | id | Fichier |
-|---|---|---|
-| `[A] Chat - Entrée` | `PersonaChatEntr1` | `a_chat_entree.json` |
-| `[A] Chat - Agent` | `PersonaChatAgnt1` | `a_chat_agent.json` |
-| `[A] Chat - Intention` | `PersonaChatIntn1` | `a_chat_intention.json` |
-| `[B] News - Collecte` | `A9xKmMDsv9dQsZpq` | `b_news_collecte.json` |
-| `[B] News - Envoi` | `MxsOXhU0nqsS2pkj` | `b_news_envoi.json` |
-| `[B] News - Désinscription` | `7tqdTDCdDhXdIczI` | `b_news_desinscription.json` |
-| `[Commun] Maintenance RGPD` | `7yCxC8evf0nnA0KJ` | `commun_maintenance_RGPD.json` |
+| Je veux...                                              | Commande                                         |
+| ------------------------------------------------------- | ------------------------------------------------ |
+| mettre dans Git un workflow que j'ai modifié dans n8n   | `bash scripts/workflows.sh export a_chat_entree` |
+| mettre dans n8n les workflows récupérés avec `git pull` | `bash scripts/workflows.sh import`               |
+| mettre dans n8n un seul workflow                        | `bash scripts/workflows.sh import b_news_envoi`  |
 
-### Exporter un workflow
+Le nom d'un workflow est celui de son fichier, sans `.json`. On peut en donner plusieurs à la
+suite. `bash scripts/workflows.sh`, sans rien, affiche la liste.
 
-Une commande par workflow : copier celle du workflow qu'on a modifié.
+| Workflow dans n8n           | Nom                       |
+| --------------------------- | ------------------------- |
+| `[A] Chat - Entrée`         | `a_chat_entree`           |
+| `[A] Chat - Agent`          | `a_chat_agent`            |
+| `[A] Chat - Intention`      | `a_chat_intention`        |
+| `[B] News - Collecte`       | `b_news_collecte`         |
+| `[B] News - Envoi`          | `b_news_envoi`            |
+| `[B] News - Désinscription` | `b_news_desinscription`   |
+| `[Commun] Maintenance RGPD` | `commun_maintenance_RGPD` |
 
-```bash
-docker compose exec -T n8n n8n export:workflow --id=PersonaChatEntr1 --output=/home/node/exports/a_chat_entree.json
-docker compose exec -T n8n n8n export:workflow --id=PersonaChatAgnt1 --output=/home/node/exports/a_chat_agent.json
-docker compose exec -T n8n n8n export:workflow --id=PersonaChatIntn1 --output=/home/node/exports/a_chat_intention.json
-docker compose exec -T n8n n8n export:workflow --id=A9xKmMDsv9dQsZpq --output=/home/node/exports/b_news_collecte.json
-docker compose exec -T n8n n8n export:workflow --id=MxsOXhU0nqsS2pkj --output=/home/node/exports/b_news_envoi.json
-docker compose exec -T n8n n8n export:workflow --id=7tqdTDCdDhXdIczI --output=/home/node/exports/b_news_desinscription.json
-docker compose exec -T n8n n8n export:workflow --id=7yCxC8evf0nnA0KJ --output=/home/node/exports/commun_maintenance_RGPD.json
-```
-
-La commande doit afficher `Successfully exported 1 workflow.` Puis, toujours :
+### J'ai modifié un workflow dans n8n
 
 ```bash
-python3 scripts/sanitize.py workflows/
-git diff workflows/
+bash scripts/workflows.sh export a_chat_entree  # n8n -> Git : exporte, nettoie, montre le diff
+git diff workflows/a_chat_entree.json
 ```
 
-Ne pas utiliser `--all --separate` : n8n nommerait les fichiers d'après l'id (`PersonaChatEntr1.json`)
-et on aurait deux fichiers pour le même workflow.
+Le script remplace le fichier par la version de n8n, puis le nettoie (voir plus bas).
 
-**Un export remplace le fichier du dépôt par ce qu'il y a dans n8n.** Si un workflow n'a pas été
-réimporté depuis le dernier `git pull`, l'export remet son ancienne version dans le dépôt et efface
-le travail de l'autre. Toujours lire le `git diff` avant de commit, et n'ajouter que les fichiers
-qu'on a vraiment modifiés.
+**Lire le diff avant de commit** : il ne doit contenir que ses propres changements. S'il efface le
+travail de l'autre, c'est que ce workflow n'avait pas été importé après le dernier `git pull`. Dans
+ce cas, `git restore workflows/a_chat_entree.json` annule l'export. Importer alors le workflow,
+puis refaire ses changements dans n8n.
 
-### Récupérer un workflow modifié par l'autre
+Le script demande toujours un nom, pour n'exporter que les workflows qu'on a vraiment modifiés.
 
-Après un `git pull`, l'étape 3 réimporte tous les workflows. Pour un seul :
+### L'autre a modifié un workflow
 
 ```bash
-docker compose exec n8n n8n import:workflow --input=/home/node/exports/b_news_envoi.json
+git pull
+bash scripts/workflows.sh import
 ```
 
-L'import dépublie le workflow : le republier ensuite dans n8n (étape 4).
+L'import remplace les workflows de n8n par ceux du dépôt :
 
-### Nettoyer et vérifier
+- si on a modifié un de ces workflows dans n8n sans l'exporter, ces changements sont perdus :
+  l'exporter avant
+- les workflows importés sont dépubliés : les republier ensuite (étape 4)
 
-`sanitize.py` est obligatoire avant chaque commit. Il retire ce qui ne doit pas aller dans Git
-(données épinglées, en-têtes sensibles), signale les secrets probables, et remet aux credentials
-leur nom d'équipe pour que l'étape 3 marche chez l'autre.
+Ne jamais importer avec _Import from File_ dans n8n : n8n en ferait une copie avec un nouvel id,
+qui prendrait la place de l'original.
+
+### Nettoyage et CI
+
+`export` lance `scripts/sanitize.py` tout seul. Il retire ce qui ne doit pas aller dans Git
+(données épinglées, en-têtes sensibles), et remet aux credentials leur nom d'équipe pour que
+l'import marche chez l'autre. S'il affiche `!!`, c'est un secret probable : le retirer à la main
+avant de commit.
 
 À chaque PR, la CI de GitHub (`.github/workflows/ci.yml`) relance `sanitize.py` et les tests. La PR
 passe en rouge si un workflow n'a pas été nettoyé, contient un secret, ou si un test échoue.
+
+### Ajouter un nouveau workflow
+
+Le script ne connaît que les workflows qui ont déjà un fichier dans `workflows/`. La première fois,
+exporter à la main, avec l'id qu'on trouve dans l'URL du workflow dans n8n (`/workflow/<id>`) :
+
+```bash
+docker compose exec -T n8n n8n export:workflow --id=<id> --output=/home/node/exports/<nom>.json
+python3 scripts/sanitize.py workflows/<nom>.json
+```
+
+Ensuite, `bash scripts/workflows.sh export <nom>` suffit.
 
 ## Conventions d'équipe
 
@@ -214,15 +228,15 @@ du nœud Postgres), jamais de concaténation : c'est ce qui protège de l'inject
 
 ## Les workflows
 
-| Workflow | Fichier | Quand | Credentials |
-|---|---|---|---|
-| `[A] Chat - Entrée` | `a_chat_entree.json` | à chaque message du chat | Postgres, SMTP |
-| `[A] Chat - Agent` | `a_chat_agent.json` | appelé par `Chat - Entrée` | Postgres, Gemini |
-| `[A] Chat - Intention` | `a_chat_intention.json` | appelé par `Chat - Entrée` | Gemini |
-| `[B] News - Collecte` | `b_news_collecte.json` | toutes les heures | Postgres, Gemini |
-| `[B] News - Envoi` | `b_news_envoi.json` | toutes les heures à h00 | Postgres, SMTP |
-| `[B] News - Désinscription` | `b_news_desinscription.json` | lien `/unsubscribe` des emails | Postgres |
-| `[Commun] Maintenance RGPD` | `commun_maintenance_RGPD.json` | tous les jours à 3 h | Postgres |
+| Workflow                    | Fichier                        | Quand                          | Credentials      |
+| --------------------------- | ------------------------------ | ------------------------------ | ---------------- |
+| `[A] Chat - Entrée`         | `a_chat_entree.json`           | à chaque message du chat       | Postgres, SMTP   |
+| `[A] Chat - Agent`          | `a_chat_agent.json`            | appelé par `Chat - Entrée`     | Postgres, Gemini |
+| `[A] Chat - Intention`      | `a_chat_intention.json`        | appelé par `Chat - Entrée`     | Gemini           |
+| `[B] News - Collecte`       | `b_news_collecte.json`         | toutes les heures              | Postgres, Gemini |
+| `[B] News - Envoi`          | `b_news_envoi.json`            | toutes les heures à h00        | Postgres, SMTP   |
+| `[B] News - Désinscription` | `b_news_desinscription.json`   | lien `/unsubscribe` des emails | Postgres         |
+| `[Commun] Maintenance RGPD` | `commun_maintenance_RGPD.json` | tous les jours à 3 h           | Postgres         |
 
 L'ordre de publication est à l'étape 4 de [Lancer le projet](#lancer-le-projet).
 
@@ -356,16 +370,17 @@ du lot en cours peuvent être modifiés.
 3. Construit un email HTML avec un lien de désinscription personnel. La mise en
    page suit le `format` choisi dans le chat :
 
-   | `format` | Pour chaque article |
-   |---|---|
-   | `titres` | titre cliquable et source |
-   | `resume` (par défaut) | titre cliquable, source et résumé |
-   | `detaille` | titre cliquable, source, heure de publication (dans son fuseau), thèmes et résumé |
+   | `format`              | Pour chaque article                                                               |
+   | --------------------- | --------------------------------------------------------------------------------- |
+   | `titres`              | titre cliquable et source                                                         |
+   | `resume` (par défaut) | titre cliquable, source et résumé                                                 |
+   | `detaille`            | titre cliquable, source, heure de publication (dans son fuseau), thèmes et résumé |
 
    Le titre, la source et le résumé sont échappés, et les articles dont le lien
    n'est pas en `http(s)://` sont écartés. Le ton (`tone`) ne sert qu'à l'agent du
    chat : l'email ne change pas de ton (il faudrait un appel à Gemini par abonné,
    voir [docs/optimisation-IA.md](docs/optimisation-IA.md)).
+
 4. **Vérifie l'email avant l'envoi** (`Vérifier l'email`) : destinataire valide,
    au moins un article, lien de désinscription présent, aucune balise dangereuse
    (`<script>`, `onerror=`…) et uniquement des liens `http(s)`. Si un point échoue,
@@ -434,17 +449,17 @@ main. Rien n'est écrit en base.
 workflows : un groupe par partie (A, B, Commun), puis une section par workflow, qui affiche les
 nœuds qu'elle lance.
 
-| Groupe | Section du script | Tests | Ce qui est testé |
-|---|---|---|---|
-| A · Chatbot | [A] Chat - Entrée : messages envoyés à l'IA | 2 | rien ne part vers l'IA pendant l'inscription ou la connexion ; une rafale de messages est refusée |
-| A · Chatbot | [A] Chat - Entrée : comprendre les phrases | 2 | une phrase d'inscription est comprise ; aucune phrase ne supprime un compte |
-| A · Chatbot | [A] Chat - Entrée : code d'inscription | 2 | le bon code crée le compte ; 5 essais au maximum |
-| A · Chatbot | [A] Chat - Agent : prompt par étape | 1 | sans centre d'intérêt, l'agent est à l'étape 1 |
-| B · Newsletter | [B] News - Collecte : contrôle des résumés | 9 | un bon résumé est gardé, les mauvais sont rejetés, même si l'IA relectrice est en panne |
-| B · Newsletter | [B] News - Collecte : reprise des articles | 1 | les articles d'un lot raté sont repris |
-| B · Newsletter | [B] News - Envoi : sécurité de l'email | 5 | le HTML est échappé ; un lien `javascript:`, un `Bcc` caché ou un lien de désinscription absent bloquent l'email |
-| B · Newsletter | [B] News - Envoi : réglages de l'abonné | 6 | les 3 formats, un format ou un fuseau inconnu, les sources exclues |
-| Commun | Modèle Gemini | 1 | les 4 nœuds Gemini ont le même modèle, écrit en toutes lettres |
+| Groupe         | Section du script                           | Tests | Ce qui est testé                                                                                                 |
+| -------------- | ------------------------------------------- | ----- | ---------------------------------------------------------------------------------------------------------------- |
+| A · Chatbot    | [A] Chat - Entrée : messages envoyés à l'IA | 2     | rien ne part vers l'IA pendant l'inscription ou la connexion ; une rafale de messages est refusée                |
+| A · Chatbot    | [A] Chat - Entrée : comprendre les phrases  | 2     | une phrase d'inscription est comprise ; aucune phrase ne supprime un compte                                      |
+| A · Chatbot    | [A] Chat - Entrée : code d'inscription      | 2     | le bon code crée le compte ; 5 essais au maximum                                                                 |
+| A · Chatbot    | [A] Chat - Agent : prompt par étape         | 1     | sans centre d'intérêt, l'agent est à l'étape 1                                                                   |
+| B · Newsletter | [B] News - Collecte : contrôle des résumés  | 9     | un bon résumé est gardé, les mauvais sont rejetés, même si l'IA relectrice est en panne                          |
+| B · Newsletter | [B] News - Collecte : reprise des articles  | 1     | les articles d'un lot raté sont repris                                                                           |
+| B · Newsletter | [B] News - Envoi : sécurité de l'email      | 5     | le HTML est échappé ; un lien `javascript:`, un `Bcc` caché ou un lien de désinscription absent bloquent l'email |
+| B · Newsletter | [B] News - Envoi : réglages de l'abonné     | 6     | les 3 formats, un format ou un fuseau inconnu, les sources exclues                                               |
+| Commun         | Modèle Gemini                               | 1     | les 4 nœuds Gemini ont le même modèle, écrit en toutes lettres                                                   |
 
 Le détail de chaque test, et ce qui n'est pas testé, est dans
 [docs/tests-scenarios.md](docs/tests-scenarios.md).
@@ -457,12 +472,12 @@ résumés, ni ce que l'agent décide de faire. Les conversations à rejouer à l
 
 Persona lit 4 flux RSS, listés dans le nœud `Liste des sources` de `[B] News - Collecte` :
 
-| Source | Flux | Langue | Part des articles | Thèmes les plus fréquents |
-|---|---|---|---|---|
-| Le Monde | https://www.lemonde.fr/rss/une.xml | français | 23 % | politique, international, société, économie |
-| France Info | https://www.francetvinfo.fr/titres.rss | français | 34 % | société, politique, international, faits-divers |
-| Numerama | https://www.numerama.com/feed/ | français | 15 % | technologie, économie, jeux-vidéo, culture |
-| BBC News | https://feeds.bbci.co.uk/news/rss.xml | anglais (résumé traduit) | 28 % | international, société, politique, sport |
+| Source      | Flux                                   | Langue                   | Part des articles | Thèmes les plus fréquents                       |
+| ----------- | -------------------------------------- | ------------------------ | ----------------- | ----------------------------------------------- |
+| Le Monde    | https://www.lemonde.fr/rss/une.xml     | français                 | 23 %              | politique, international, société, économie     |
+| France Info | https://www.francetvinfo.fr/titres.rss | français                 | 34 %              | société, politique, international, faits-divers |
+| Numerama    | https://www.numerama.com/feed/         | français                 | 15 %              | technologie, économie, jeux-vidéo, culture      |
+| BBC News    | https://feeds.bbci.co.uk/news/rss.xml  | anglais (résumé traduit) | 28 %              | international, société, politique, sport        |
 
 Parts et thèmes mesurés le 14/11/2026 sur les 3 019 articles en base (les 30 derniers jours au
 plus).
