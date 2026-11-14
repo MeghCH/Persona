@@ -15,7 +15,7 @@ docker compose exec -T n8n node - < scripts/test_scenarios.js
 Le script lance le vrai code des nœuds des workflows. Gemini est remplacé par des réponses
 écrites à la main. Rien n'est écrit en base.
 
-Résultat : **16 tests sur 16 passent**.
+Résultat : **24 tests sur 24 passent** (collecte et envoi).
 
 ## Les scénarios
 
@@ -52,6 +52,19 @@ Un résumé rejeté n'est pas enregistré, donc l'article n'est jamais envoyé.
 | le jeton de désinscription manque (obligatoire pour le RGPD) | l'email ne part pas |
 
 Un email bloqué est noté dans `audit_log` (`newsletter_blocked`).
+
+### Envoi : réglages choisis dans le chat
+
+| Ce qui tourne mal | Ce qu'on attend |
+|---|---|
+| l'utilisateur est passé en format `titres` (« c'est trop long ») | l'email n'a plus les résumés |
+| rien (cas normal) : format `resume` | le résumé est là |
+| rien (cas normal) : format `detaille` | résumé, heure de publication à l'heure de Paris et thèmes |
+| une valeur inconnue arrive dans `format` | mise en page `resume`, pas d'email cassé |
+| le fuseau en base n'est pas connu de Node | heure de Paris, sans planter |
+| une des 3 mises en page casse le contrôle de l'email | les 3 passent `Vérifier l'email` |
+| l'utilisateur a exclu une source, mais la requête ne lit pas `excluded_sources` | `Utilisateurs à servir` lit `format`, `excluded_sources` et `timezone` |
+| les sources exclues sont retirées après le `LIMIT` (moins d'articles que demandé) | le filtre est dans le `WHERE`, avant le `LIMIT` |
 
 ## Ce qui n'est pas testé
 

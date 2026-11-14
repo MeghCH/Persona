@@ -305,11 +305,20 @@ du lot en cours peuvent être modifiés.
    utilisateur déjà servi il y a moins de 20 h est ignoré (pas de double envoi).
 2. Choisit ses `max_articles` articles les plus récents (5 par défaut) dont les
    thèmes croisent ses `interests`, qui ont un résumé et ont été collectés dans
-   les dernières 24 h.
+   les dernières 24 h. Les sources exclues dans le chat (`excluded_sources`) sont
+   retirées avant de compter : l'utilisateur reçoit quand même `max_articles` articles.
    Aucun article = aucun email.
-3. Construit un email HTML (titre cliquable, source, résumé) avec un lien de
-   désinscription personnel. Le titre, la source et le résumé sont échappés, et
-   les articles dont le lien n'est pas en `http(s)://` sont écartés.
+3. Construit un email HTML avec un lien de désinscription personnel. La mise en
+   page suit le `format` choisi dans le chat :
+
+   | `format` | Pour chaque article |
+   |---|---|
+   | `titres` | titre cliquable et source |
+   | `resume` (par défaut) | titre cliquable, source et résumé |
+   | `detaille` | titre cliquable, source, heure de publication (dans son fuseau), thèmes et résumé |
+
+   Le titre, la source et le résumé sont échappés, et les articles dont le lien
+   n'est pas en `http(s)://` sont écartés.
 4. **Vérifie l'email avant l'envoi** (`Vérifier l'email`) : destinataire valide,
    au moins un article, lien de désinscription présent, aucune balise dangereuse
    (`<script>`, `onerror=`…) et uniquement des liens `http(s)`. Si un point échoue,

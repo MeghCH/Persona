@@ -119,8 +119,11 @@ verifier("IA relectrice en panne : un résumé avec du HTML est quand même reje
 
 const JETON = '3f2b8c1e-1d2a-4b3c-9d4e-5f6a7b8c9d0e';
 
-function preparerEtVerifier(articles, destinataire = 'lecteur@example.com', jeton = JETON) {
-  const prepare = lancerNoeud(envoi, 'Préparer les articles', { $json: { articles } }).json;
+// prefs : ce que « Utilisateurs à servir » lit dans preferences
+function preparerEtVerifier(articles, destinataire = 'lecteur@example.com', jeton = JETON,
+                            prefs = { format: 'resume', timezone: 'Europe/Paris' }) {
+  const prepare = lancerNoeud(envoi, 'Préparer les articles',
+    { $json: { articles }, $: () => ({ item: { json: prefs } }) }).json;
 
   // même chose que « Construire l'email », en plus court
   const email = {
@@ -134,7 +137,7 @@ function preparerEtVerifier(articles, destinataire = 'lecteur@example.com', jeto
   });
   const verifie = lancerNoeud(envoi, "Vérifier l'email", { $json: email, $ }).json;
 
-  return { html: email.html, problemes: verifie.problemes.join(', ') };
+  return { html: email.html, problemes: verifie.problemes.join(', '), format: prepare.format };
 }
 
 const article = { id: 1, title: 'Titre', url: 'https://www.lemonde.fr/article', source: 'Le Monde', summary: BON_RESUME };
@@ -161,6 +164,41 @@ verifier('un destinataire avec un Bcc caché bloque l\'email',
 // Scénario : le jeton de désinscription manque. Sans lien de désinscription, l'email n'est pas conforme au RGPD.
 verifier('un email sans jeton de désinscription est bloqué',
   preparerEtVerifier([article], 'lecteur@example.com', '').problemes, 'lien de désinscription absent');
+
+
+console.log('\n--- Envoi : réglages choisis dans le chat');
+
+const avecFormat = (format, articles = [{ ...article, tags: ['politique', 'économie'], published_at: '2026-11-13T13:00:55+00:00' }]) =>
+  preparerEtVerifier(articles, 'lecteur@example.com', JETON, { format, timezone: 'Europe/Paris' });
+
+// Scénario : l'utilisateur a dit « c'est trop long » et l'agent est passé en format titres.
+// S'il reçoit encore les résumés, le réglage ne sert à rien.
+verifier('format titres : le titre est là, pas le résumé',
+  [avecFormat('titres').html.includes('<b>Titre</b>'), avecFormat('titres').html.includes(BON_RESUME)].join(','), 'true,false');
+verifier('format résumé : le résumé est là', avecFormat('resume').html.includes(BON_RESUME), true);
+verifier('format détaillé : résumé, heure de publication (heure de Paris) et thèmes',
+  ['13 novembre à 14:00', 'politique, économie', BON_RESUME].every(t => avecFormat('detaille').html.includes(t)), true);
+// Scénario : une valeur inattendue arrive dans format. On n'envoie pas un email vide ou cassé.
+verifier('format inconnu : mise en page résumé', avecFormat('<b>n_importe</b>').format, 'resume');
+// Scénario : le fuseau en base n'est pas connu de Node. La date passe en heure de Paris au lieu de planter.
+verifier('fuseau inconnu : pas de plantage, heure de Paris',
+  preparerEtVerifier([{ ...article, published_at: '2026-11-13T13:00:55+00:00' }], 'lecteur@example.com', JETON,
+    { format: 'detaille', timezone: 'Pas/Un_Fuseau' }).html.includes('13 novembre à 14:00'), true);
+// Les nouvelles mises en page passent toujours le contrôle de l'email.
+verifier('les 3 formats passent la vérification de l\'email',
+  ['titres', 'resume', 'detaille'].map(f => avecFormat(f).problemes).join('|'), '||');
+
+// Scénario : l'utilisateur a exclu Le Monde dans le chat. La requête doit retirer ses articles
+// avant le LIMIT, sinon il reçoit moins d'articles que demandé (ou encore du Le Monde).
+const sqlEnvoi = nom => envoi.nodes.find(n => n.name === nom).parameters;
+const requeteArticles = sqlEnvoi("Articles pour l'utilisateur").query;
+verifier('« Utilisateurs à servir » lit format, sources exclues et fuseau',
+  /p\.format/.test(sqlEnvoi('Utilisateurs à servir').query)
+  && /p\.excluded_sources/.test(sqlEnvoi('Utilisateurs à servir').query)
+  && /p\.timezone/.test(sqlEnvoi('Utilisateurs à servir').query), true);
+verifier('les sources exclues sont retirées dans le WHERE, avant le LIMIT',
+  /WHERE[\s\S]*source <> ALL \(ARRAY\(SELECT json_array_elements_text\(\$3::json\)\)\)[\s\S]*LIMIT/.test(requeteArticles)
+  && /JSON\.stringify\(\$json\.excluded_sources \|\| \[\]\)/.test(sqlEnvoi("Articles pour l'utilisateur").options.queryReplacement), true);
 
 
 // Chat : quels messages partent vers l'IA

@@ -30,7 +30,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT u.id, u.email, u.unsubscribe_token, p.interests, p.max_articles\nFROM users u\nJOIN preferences p ON p.user_id = u.id\nWHERE p.is_active\n  AND p.send_hour = EXTRACT(HOUR FROM now() AT TIME ZONE p.timezone)\n  AND EXTRACT(ISODOW FROM now() AT TIME ZONE p.timezone) = ANY (p.send_days)\n  AND (p.last_sent_at IS NULL OR p.last_sent_at < now() - INTERVAL '20 hours');",
+        "query": "SELECT u.id, u.email, u.unsubscribe_token, p.interests, p.max_articles,\n       p.format, p.excluded_sources, p.timezone\nFROM users u\nJOIN preferences p ON p.user_id = u.id\nWHERE p.is_active\n  AND p.send_hour = EXTRACT(HOUR FROM now() AT TIME ZONE p.timezone)\n  AND EXTRACT(ISODOW FROM now() AT TIME ZONE p.timezone) = ANY (p.send_days)\n  AND (p.last_sent_at IS NULL OR p.last_sent_at < now() - INTERVAL '20 hours');",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
@@ -51,9 +51,9 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT COALESCE(json_agg(x), '[]') AS articles\nFROM (\n  SELECT id, title, url, source, summary\n  FROM articles\n  WHERE tags && ARRAY(SELECT json_array_elements_text($1::json))\n    AND summary IS NOT NULL\n    AND fetched_at > now() - INTERVAL '24 hours'\n  ORDER BY published_at DESC NULLS LAST\n  LIMIT $2::int\n) x;",
+        "query": "SELECT COALESCE(json_agg(x), '[]') AS articles\nFROM (\n  SELECT id, title, url, source, summary, tags, published_at\n  FROM articles\n  WHERE tags && ARRAY(SELECT json_array_elements_text($1::json))\n    -- sources exclues dans le chat, retirées avant le LIMIT : on garde max_articles articles\n    AND source <> ALL (ARRAY(SELECT json_array_elements_text($3::json)))\n    AND summary IS NOT NULL\n    AND fetched_at > now() - INTERVAL '24 hours'\n  ORDER BY published_at DESC NULLS LAST\n  LIMIT $2::int\n) x;",
         "options": {
-          "queryReplacement": "={{ [ JSON.stringify($json.interests), $json.max_articles ] }}"
+          "queryReplacement": "={{ [ JSON.stringify($json.interests), $json.max_articles, JSON.stringify($json.excluded_sources || []) ] }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
@@ -131,7 +131,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "// Le titre vient du flux RSS et le résumé de l'IA : on les échappe avant de les\n// mettre dans le HTML, et on écarte les articles sans lien http(s) ou sans résumé.\nconst echapper = s => String(s ?? '')\n  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')\n  .replace(/\"/g, '&quot;').replace(/'/g, '&#39;');\nconst lienValide = url => typeof url === 'string' && /^https?:\\/\\/[^\\s\"'<>]+$/i.test(url);\n\nconst articles = ($json.articles || []).filter(a =>\n  lienValide(a.url) && a.title && typeof a.summary === 'string' && a.summary.trim());\n\nconst blocs = articles.map(a =>\n  `<p><a href=\"${echapper(a.url)}\"><b>${echapper(a.title)}</b></a><br>` +\n  `<small>${echapper(a.source)}</small><br>${echapper(a.summary)}</p>`\n).join('');\n\nreturn { json: { articles, blocs } };"
+        "jsCode": "// Le titre vient du flux RSS et le résumé de l'IA : on les échappe avant de les\n// mettre dans le HTML, et on écarte les articles sans lien http(s) ou sans résumé.\n// La mise en page suit le format choisi dans le chat (preferences.format) :\n// titres = titre et source, resume = + le résumé, detaille = + l'heure de publication et les thèmes.\nconst echapper = s => String(s ?? '')\n  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')\n  .replace(/\"/g, '&quot;').replace(/'/g, '&#39;');\nconst lienValide = url => typeof url === 'string' && /^https?:\\/\\/[^\\s\"'<>]+$/i.test(url);\n\nconst prefs = $('Utilisateurs à servir').item.json;\n// format inconnu ou absent : on garde la mise en page habituelle\nconst format = ['titres', 'resume', 'detaille'].includes(prefs.format) ? prefs.format : 'resume';\n\n// « 13 novembre à 14:00 », dans le fuseau de l'utilisateur\nconst publieLe = date => {\n  const d = new Date(date);\n  if (!date || isNaN(d)) return '';\n  const options = { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' };\n  try { return d.toLocaleString('fr-FR', { ...options, timeZone: prefs.timezone || 'Europe/Paris' }); }\n  catch { return d.toLocaleString('fr-FR', { ...options, timeZone: 'Europe/Paris' }); }\n};\n\nconst articles = ($json.articles || []).filter(a =>\n  lienValide(a.url) && a.title && typeof a.summary === 'string' && a.summary.trim());\n\nconst blocs = articles.map(a => {\n  const titre = `<a href=\"${echapper(a.url)}\"><b>${echapper(a.title)}</b></a>`;\n  if (format === 'titres') return `<p>${titre}<br><small>${echapper(a.source)}</small></p>`;\n  if (format === 'resume') return `<p>${titre}<br><small>${echapper(a.source)}</small><br>${echapper(a.summary)}</p>`;\n  const themes = Array.isArray(a.tags) ? a.tags.join(', ') : '';\n  const details = [a.source, publieLe(a.published_at), themes].filter(Boolean).map(echapper).join(' · ');\n  return `<p>${titre}<br><small>${details}</small><br>${echapper(a.summary)}</p>`;\n}).join('');\n\nreturn { json: { articles, blocs, format } };"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
