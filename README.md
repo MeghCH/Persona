@@ -15,7 +15,8 @@ l'actualité par email, aux jours et à l'heure qu'on veut.
   les commandes se tapent dans le terminal Ubuntu, et le projet se clone dans Ubuntu (`~`), pas dans `C:`.
 - **Des ports libres** : 5432 (base), 5678 (n8n), 8025 (emails), 8090 (chatbot)
 - **Une clé API Gemini**, gratuite sur https://aistudio.google.com/apikey. Sans clé, l'inscription
-  et la connexion marchent, mais pas l'agent ni la collecte des news.
+  et la connexion marchent, mais pas l'agent ni la collecte des news. Le quota gratuit est compté
+  par modèle : Persona utilise `gemini-3.5-flash-lite` (voir [doc/optimisation.md](doc/optimisation.md)).
 - **Python 3**, seulement pour exporter des workflows (voir [Travailler à deux](#travailler-à-deux))
 
 ### 1. Démarrer
@@ -118,19 +119,16 @@ ferait une copie avec un nouvel id, qui prendrait la place de l'original.
 | des nœuds en rouge dans n8n | un credential n'a pas exactement le bon nom, ou a été créé après l'import : corriger le nom, puis refaire les étapes 3 et 4 |
 | « Je n'ai pas pu envoyer l'email » | vérifier les réglages de `SMTP Persona`, et que Mailpit tourne (`docker compose ps`) |
 | « Désolé, je n'ai pas pu traiter votre demande » | clé Gemini absente ou invalide, ou quota Gemini du jour épuisé |
+| une collecte en erreur « too many requests », des articles sans résumé | quota Gemini du jour épuisé : les articles sont repris à la collecte suivante (voir [`[B] News - Collecte`](#b-news---collecte), étape 2) |
+| les réglages du chat (format, sources exclues) ne changent rien à l'email | `[B] News - Envoi` n'a pas été réimporté depuis : refaire l'étape 3, ou [importer ce seul workflow](#récupérer-un-workflow-modifié-par-lautre), puis le republier |
 | « Error in workflow » | la base est arrêtée : relancer `bash scripts/setup.sh` |
 | le chat répond comme une ancienne version | une copie du workflow est publiée à la place de l'original : dans n8n, archiver la copie et publier l'original |
 | autre chose | `docker compose logs n8n` montre les erreurs de n8n |
 
 ## Travailler à deux
 
-Les workflows se modifient dans n8n, puis s'exportent un par un dans le dossier `workflows/` :
-
-```bash
-docker compose exec n8n n8n export:workflow --id=PersonaChatEntr1 --output=/home/node/exports/a_chat_entree.json
-python3 scripts/sanitize.py workflows/
-git diff workflows/
-```
+Les workflows se modifient dans n8n, puis s'exportent dans le dossier `workflows/`. Chaque
+workflow a son id et son fichier :
 
 | Workflow | id | Fichier |
 |---|---|---|
@@ -142,8 +140,46 @@ git diff workflows/
 | `[B] News - Désinscription` | `7tqdTDCdDhXdIczI` | `b_news_desinscription.json` |
 | `[Commun] Maintenance RGPD` | `7yCxC8evf0nnA0KJ` | `commun_maintenance_RGPD.json` |
 
+### Exporter un workflow
+
+Une commande par workflow : copier celle du workflow qu'on a modifié.
+
+```bash
+docker compose exec -T n8n n8n export:workflow --id=PersonaChatEntr1 --output=/home/node/exports/a_chat_entree.json
+docker compose exec -T n8n n8n export:workflow --id=PersonaChatAgnt1 --output=/home/node/exports/a_chat_agent.json
+docker compose exec -T n8n n8n export:workflow --id=PersonaChatIntn1 --output=/home/node/exports/a_chat_intention.json
+docker compose exec -T n8n n8n export:workflow --id=A9xKmMDsv9dQsZpq --output=/home/node/exports/b_news_collecte.json
+docker compose exec -T n8n n8n export:workflow --id=MxsOXhU0nqsS2pkj --output=/home/node/exports/b_news_envoi.json
+docker compose exec -T n8n n8n export:workflow --id=7tqdTDCdDhXdIczI --output=/home/node/exports/b_news_desinscription.json
+docker compose exec -T n8n n8n export:workflow --id=7yCxC8evf0nnA0KJ --output=/home/node/exports/commun_maintenance_RGPD.json
+```
+
+La commande doit afficher `Successfully exported 1 workflow.` Puis, toujours :
+
+```bash
+python3 scripts/sanitize.py workflows/
+git diff workflows/
+```
+
 Ne pas utiliser `--all --separate` : n8n nommerait les fichiers d'après l'id (`PersonaChatEntr1.json`)
 et on aurait deux fichiers pour le même workflow.
+
+**Un export remplace le fichier du dépôt par ce qu'il y a dans n8n.** Si un workflow n'a pas été
+réimporté depuis le dernier `git pull`, l'export remet son ancienne version dans le dépôt et efface
+le travail de l'autre. Toujours lire le `git diff` avant de commit, et n'ajouter que les fichiers
+qu'on a vraiment modifiés.
+
+### Récupérer un workflow modifié par l'autre
+
+Après un `git pull`, l'étape 3 réimporte tous les workflows. Pour un seul :
+
+```bash
+docker compose exec n8n n8n import:workflow --input=/home/node/exports/b_news_envoi.json
+```
+
+L'import dépublie le workflow : le republier ensuite dans n8n (étape 4).
+
+### Nettoyer et vérifier
 
 `sanitize.py` est obligatoire avant chaque commit. Il retire ce qui ne doit pas aller dans Git
 (données épinglées, en-têtes sensibles), signale les secrets probables, et remet aux credentials
@@ -191,8 +227,8 @@ du nœud Postgres), jamais de concaténation : c'est ce qui protège de l'inject
 L'ordre de publication est à l'étape 4 de [Lancer le projet](#lancer-le-projet).
 
 Les 4 nœuds Gemini utilisent le même modèle, `gemini-3.5-flash-lite`, écrit dans chaque nœud. Pour
-en changer, il faut changer les 4 : un test le vérifie. Le choix est expliqué dans
-[doc/optimisation.md](doc/optimisation.md#changement-de-modèle).
+en changer, il faut changer les 4 : un test le vérifie. Le choix, et les mesures des deux modèles
+essayés, sont dans [doc/optimisation.md](doc/optimisation.md#les-deux-modèles-essayés).
 
 ### `[A] Chat - Entrée`
 
@@ -327,7 +363,9 @@ du lot en cours peuvent être modifiés.
    | `detaille` | titre cliquable, source, heure de publication (dans son fuseau), thèmes et résumé |
 
    Le titre, la source et le résumé sont échappés, et les articles dont le lien
-   n'est pas en `http(s)://` sont écartés.
+   n'est pas en `http(s)://` sont écartés. Le ton (`tone`) ne sert qu'à l'agent du
+   chat : l'email ne change pas de ton (il faudrait un appel à Gemini par abonné,
+   voir [doc/optimisation.md](doc/optimisation.md)).
 4. **Vérifie l'email avant l'envoi** (`Vérifier l'email`) : destinataire valide,
    au moins un article, lien de désinscription présent, aucune balise dangereuse
    (`<script>`, `onerror=`…) et uniquement des liens `http(s)`. Si un point échoue,
@@ -366,9 +404,11 @@ Chaque nuit à 3 h, appelle `SELECT persona_cleanup();` puis ajoute un événeme
 
 - les comptes désabonnés : 6 mois après la désinscription (la date est notée toute seule en base)
 - `sessions` : une fois expirées
+- `auth_pending` (inscription ou connexion en cours) : après 1 heure
+- `chat_ai_requests` (comptage des messages vers l'IA) : après 2 jours
 - `articles` : après 30 jours
 - `sent_newsletters` : après 6 mois
-- `audit_log` : après 1 an
+- `audit_log` et `feedback` : après 1 an
 
 `persona_app` n'a pas le droit de supprimer dans `audit_log` : la fonction est
 `SECURITY DEFINER` et s'exécute avec les droits de son propriétaire.
@@ -391,23 +431,51 @@ Le script lance le vrai code des nœuds des workflows, avec des réponses de Gem
 main. Rien n'est écrit en base. Chaque test imagine un scénario où quelque chose tourne mal, et
 vérifie que le système réagit bien :
 
+124 tests, qui doivent tous passer (`124 réussis, 0 ratés`) :
+
 | Partie | Exemples | Détails |
 |---|---|---|
 | Collecte | un résumé vide, trop long, en anglais, avec du HTML ou un lien : rejeté | [doc/tests-evaluation.md](doc/tests-evaluation.md) |
+| Collecte : reprise | un article dont le lot a échoué est repris, même sans nouvel article ; 50 au maximum | [doc/optimisation.md](doc/optimisation.md#reprise-des-articles) |
 | Envoi | un `<script>` dans un titre est échappé, un `Bcc` caché bloque l'email | [doc/tests-evaluation.md](doc/tests-evaluation.md) |
+| Envoi : réglages | le format `titres` n'a plus les résumés, les sources exclues sont retirées avant le `LIMIT` | [doc/tests-evaluation.md](doc/tests-evaluation.md) |
 | Chat | aucun mot de passe ne part vers l'IA, chaque limite de messages tient | [doc/protection-deni-de-service.md](doc/protection-deni-de-service.md) |
+| Chat : agent | le bon prompt à chaque étape, `reinclure_source` agit sur le compte de la session, un outil ne sert qu'à la demande | [doc/prompts.md](doc/prompts.md) |
 | Inscription | le code est aléatoire, haché, limité à 5 essais et 3 envois | [doc/code-inscription.md](doc/code-inscription.md) |
+| Modèle | les 4 nœuds Gemini ont le même modèle, écrit en toutes lettres | [doc/optimisation.md](doc/optimisation.md#les-deux-modèles-essayés) |
+
+Les tests ne remplacent pas un essai avec le vrai Gemini : ils ne vérifient ni la qualité des
+résumés, ni ce que l'agent décide de faire.
 
 ## Sources de news
 
-- Le Monde (https://www.lemonde.fr/rss/une.xml) : actualité générale, international
-- France Info (https://www.francetvinfo.fr/titres.rss) : actualité générale, société, sport
-- Numerama (https://www.numerama.com/feed/) : tech, sciences, espace
-- BBC News (https://feeds.bbci.co.uk/news/rss.xml) : international, en anglais
+Persona lit 4 flux RSS, listés dans le nœud `Liste des sources` de `[B] News - Collecte` :
 
-Choix : thèmes variés pour que le filtrage par intérêts ait du sens, une source anglophone
+| Source | Flux | Langue | Part des articles | Thèmes les plus fréquents |
+|---|---|---|---|---|
+| Le Monde | https://www.lemonde.fr/rss/une.xml | français | 23 % | politique, international, société, économie |
+| France Info | https://www.francetvinfo.fr/titres.rss | français | 34 % | société, politique, international, faits-divers |
+| Numerama | https://www.numerama.com/feed/ | français | 15 % | technologie, économie, jeux-vidéo, culture |
+| BBC News | https://feeds.bbci.co.uk/news/rss.xml | anglais (résumé traduit) | 28 % | international, société, politique, sport |
+
+Parts et thèmes mesurés le 14/11/2026 sur les 3 019 articles en base (les 30 derniers jours au
+plus).
+
+Choix : des thèmes variés pour que le filtrage par intérêts ait du sens, et une source anglophone
 pour l'international. La newsletter ne contient qu'un résumé et un lien vers l'article original
-(respect du droit d'auteur). France Info nécessite un en-tête `User-Agent` dans les requêtes.
+(respect du droit d'auteur).
+
+Dans le chat, un abonné peut exclure une source (« je ne veux plus de Le Monde ») et la remettre
+plus tard (« remets Le Monde »). L'agent utilise `exclure_source` et `reinclure_source`, qui
+acceptent aussi `lemonde`, `franceinfo`, `francetvinfo` et `bbc`.
+
+**Ajouter une source**, à faire partout en même temps :
+
+1. le flux dans `Liste des sources` (`[B] News - Collecte`) ;
+2. le nom et ses variantes dans la liste `VALUES` de `exclure_source` **et** de `reinclure_source`
+   (`[A] Chat - Agent`) : un test vérifie que les deux listes sont les mêmes ;
+3. le nom dans la description de ces deux outils et dans les « Valeurs autorisées » du prompt
+   (`Choisir le prompt`, même workflow).
 
 Pour vérifier un flux :
 
@@ -415,13 +483,16 @@ Pour vérifier un flux :
 curl -sL -A "Mozilla/5.0" https://feeds.bbci.co.uk/news/rss.xml | head -c 300
 ```
 
-La réponse doit commencer par `<?xml`.
+La réponse doit commencer par `<?xml`. Si un site refuse la requête, garder `-A "Mozilla/5.0"` :
+certains sites bloquent les requêtes qui n'ont pas l'air de venir d'un navigateur.
 
 ## Documentation
 
 - [doc/code-inscription.md](doc/code-inscription.md) : le code par email à l'inscription
 - [doc/protection-deni-de-service.md](doc/protection-deni-de-service.md) : les limites de messages vers l'IA
-- [doc/audit-securite.md](doc/audit-securite.md) : l'audit de sécurité du chatbot et des workflows de B
+- [doc/prompts.md](doc/prompts.md) : les prompts de l'agent et de l'intention, et leurs versions
+- [doc/audit-securite/audit-secu.md](doc/audit-securite/audit-secu.md) : l'audit de sécurité du chatbot et des workflows de B (13/11, avec une mise à jour du 14/11)
+- [doc/audit-securite.md](doc/audit-securite.md) : la première version de l'audit (29/10)
 - [doc/tests-evaluation.md](doc/tests-evaluation.md) : les tests de l'évaluation avant l'envoi
 - [doc/optimisation.md](doc/optimisation.md) : ce que coûte chaque workflow en temps et en tokens, et le quota Gemini
 - [doc/normes-RGPD.md](doc/normes-RGPD.md) : la politique de confidentialité et le registre des traitements

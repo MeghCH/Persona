@@ -15,7 +15,8 @@ docker compose exec -T n8n node - < scripts/test_scenarios.js
 Le script lance le vrai code des nœuds des workflows. Gemini est remplacé par des réponses
 écrites à la main. Rien n'est écrit en base.
 
-Résultat : **24 tests sur 24 passent** (collecte et envoi).
+Résultat : **24 tests sur 24 passent** pour la collecte et l'envoi, sur 124 tests en tout (les
+autres parties sont listées dans le README, section Tests).
 
 ## Les scénarios
 
@@ -70,8 +71,11 @@ Un email bloqué est noté dans `audit_log` (`newsletter_blocked`).
 
 - **La vraie IA relectrice** : le script remplace Gemini par des réponses écrites à la main
   (voir plus bas pour la tester à la main).
-- **Les pannes techniques** : Gemini en panne pendant le résumé, le serveur mail (SMTP) qui ne
-  répond pas, la base arrêtée, un flux RSS inaccessible.
+- **Les pannes techniques** : le serveur mail (SMTP) qui ne répond pas, la base arrêtée, un flux
+  RSS inaccessible. Pour Gemini en panne pendant le résumé, les tests vérifient seulement que les
+  articles du lot raté seront repris à la collecte suivante (le chemin du workflow et la requête).
+  La reprise a aussi été constatée une fois en vrai, le 14/11 (voir
+  [optimisation.md](optimisation.md#reprise-des-articles)).
 
 ## À tester à la main avec le vrai Gemini
 

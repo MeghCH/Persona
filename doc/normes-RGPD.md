@@ -1,6 +1,6 @@
 # Persona - Documentation RGPD
 
-Mise à jour : 11 novembre 2026
+Mise à jour : 14 novembre 2026
 
 Persona ne collecte que l'email, les centres d'intérêt et l'heure d'envoi de ses utilisateurs, les supprime automatiquement une fois leur durée de conservation dépassée, et trace chaque action sensible dans un journal.
 
@@ -41,6 +41,7 @@ Chaque donnée personnelle a une finalité, une base légale et une durée ; les
 | Historique des envois | utilisateur, articles envoyés, date | éviter les doublons, répondre aux demandes | intérêt légitime | 6 mois | `sent_newsletters` |
 | Retours | utilisateur, message | améliorer les newsletters | consentement | 1 an | `feedback` |
 | Journal de sécurité | type d'événement, identifiant utilisateur, détails, date | sécurité, preuve des désinscriptions et des nettoyages | intérêt légitime (sécurité) | 1 an | `audit_log` |
+| Comptage des messages vers l'IA | identifiant de session, identifiant utilisateur (vidé si le compte est supprimé), connecté ou non, date ; jamais le texte du message | limiter les abus qui épuiseraient le quota de l'IA | intérêt légitime (sécurité) | 2 jours | `chat_ai_requests` |
 | Historique d'exécution n8n | messages envoyés à l'agent (`[A] Chat - Agent`), emails et newsletters envoyés (`[B] News - Envoi`) ; rien pour `[A] Chat - Entrée` et `[A] Chat - Intention`, qui reçoivent les messages tapés dans le chat | débogage | intérêt légitime | 14 jours (réglage par défaut de n8n) ; Entrée et Intention : effacées au plus tard une minute après | base interne de n8n |
 
 Le journal ne stocke pas l'email mais l'identifiant de l'utilisateur : après la suppression d'un compte, ses lignes restent comme preuve mais ne permettent plus de l'identifier.
