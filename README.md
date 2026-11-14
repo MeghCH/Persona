@@ -252,8 +252,9 @@ confidentialité) gardent leurs phrases fixes. Si Gemini ne répond pas, le chat
 
 ### `[A] Chat - Agent`
 
-Agent Gemini avec 8 outils : `lire_preferences`, `modifier_interets`, `modifier_horaire`,
-`modifier_email`, `activer_newsletter`, `modifier_style`, `exclure_source`, `donner_feedback`.
+Agent Gemini avec 9 outils : `lire_preferences`, `modifier_interets`, `modifier_horaire`,
+`modifier_email`, `activer_newsletter`, `modifier_style`, `exclure_source`, `reinclure_source`,
+`donner_feedback`.
 
 L'identifiant de l'utilisateur vient de la session, jamais de l'IA : même si on manipule
 le modèle, il ne peut toucher qu'au compte connecté. Les centres d'intérêt doivent faire

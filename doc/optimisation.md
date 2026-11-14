@@ -175,6 +175,12 @@ Ce qu'il reste à vérifier :
 - **les mesures de cette page**, à refaire après quelques jours (tokens, durées, résumés rejetés par
   l'évaluation), pour comparer.
 
+Premier essai à la main (14/11) : l'heure, les sujets, le style et l'exclusion d'une source
+marchent, y compris deux changements dans le même message. Une erreur : pour « réinclure Le
+Monde », que l'agent ne savait pas faire, il a exclu France Info à la place. On ne sait pas si un
+autre modèle aurait fait mieux. C'est corrigé par un outil et une règle dans le prompt (voir
+[prompts.md](prompts.md)), mais c'est le genre d'erreur à surveiller avec un modèle Lite.
+
 Si l'agent se trompe trop, l'étape suivante est `gemini-3.8-flash` avec une clé payante : avec la clé
 gratuite, son quota ne suffit pas.
 
