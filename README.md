@@ -16,7 +16,7 @@ l'actualité par email, aux jours et à l'heure qu'on veut.
 - **Des ports libres** : 5432 (base), 5678 (n8n), 8025 (emails), 8090 (chatbot)
 - **Une clé API Gemini**, gratuite sur https://aistudio.google.com/apikey. Sans clé, l'inscription
   et la connexion marchent, mais pas l'agent ni la collecte des news. Le quota gratuit est compté
-  par modèle : Persona utilise `gemini-3.5-flash-lite` (voir [doc/optimisation.md](doc/optimisation.md)).
+  par modèle : Persona utilise `gemini-3.5-flash-lite` (voir [docs/optimisation-IA.md](docs/optimisation-IA.md)).
 - **Python 3**, seulement pour exporter des workflows (voir [Travailler à deux](#travailler-à-deux))
 
 ### 1. Démarrer
@@ -228,7 +228,7 @@ L'ordre de publication est à l'étape 4 de [Lancer le projet](#lancer-le-projet
 
 Les 4 nœuds Gemini utilisent le même modèle, `gemini-3.5-flash-lite`, écrit dans chaque nœud. Pour
 en changer, il faut changer les 4 : un test le vérifie. Le choix, et les mesures des deux modèles
-essayés, sont dans [doc/optimisation.md](doc/optimisation.md#les-deux-modèles-essayés).
+essayés, sont dans [docs/optimisation-IA.md](docs/optimisation-IA.md#les-deux-modèles-essayés).
 
 ### `[A] Chat - Entrée`
 
@@ -240,8 +240,8 @@ Ce qu'on peut écrire au chatbot :
 
 - `inscription` : il demande l'email, si on accepte la politique de confidentialité, puis le mot de passe,
   puis envoie un code à 6 chiffres par email : le compte n'est créé qu'une fois ce code tapé dans le chat
-  (`renvoyer le code` en envoie un autre, voir [doc/code-inscription.md](doc/code-inscription.md))
-- `en savoir plus` : affiche la politique de confidentialité (celle de `doc/normes-RGPD.md`)
+  (`renvoyer le code` en envoie un autre, voir [docs/code-inscription.md](docs/code-inscription.md))
+- `en savoir plus` : affiche la politique de confidentialité (celle de `docs/normes-RGPD.md`)
 - `connexion` : il demande l'email puis le mot de passe
 - `annuler` : arrête l'inscription ou la connexion en cours
 - `deconnexion`
@@ -261,7 +261,7 @@ chose que pour la commande. Pour supprimer son compte, il faut dans tous les cas
 Les messages qui passent par l'IA sont limités : 6 par minute et par session, puis des limites
 par jour (par session, par compte, pour les non connectés ensemble, et en tout). Les commandes
 exactes ne sont pas limitées. Détails dans
-[doc/protection-deni-de-service.md](doc/protection-deni-de-service.md).
+[docs/protection-deni-of-service.md](docs/protection-deni-of-service.md).
 
 Tout ce qui touche à la connexion est fait en SQL, sans l'IA. Le mot de passe est haché
 avec bcrypt, il fait au moins 12 caractères, et 5 erreurs bloquent le compte 15 minutes.
@@ -301,9 +301,9 @@ en pause, choisir ses sujets (1 sur 3), régler la première newsletter (2 sur 3
 (3 sur 3), ou tout est réglé. Chaque étape a son objectif et annonce la suivante. Le prompt contient
 aussi les préférences actuelles, la date du jour et le prochain envoi prévu (calculé par le code), et
 suit le ton choisi par l'utilisateur. Les étapes et les versions
-successives des prompts sont dans [doc/prompts.md](doc/prompts.md).
+successives des prompts sont dans [docs/prompts-IA.md](docs/prompts-IA.md).
 
-Les protections et les tests sont détaillés dans [doc/audit-securite/audit-secu.md](doc/audit-securite/audit-secu.md).
+Les protections et les tests sont détaillés dans [docs/audit-securite/audit-secu.md](docs/audit-securite/audit-secu.md).
 
 ### `[B] News - Collecte`
 
@@ -365,7 +365,7 @@ du lot en cours peuvent être modifiés.
    Le titre, la source et le résumé sont échappés, et les articles dont le lien
    n'est pas en `http(s)://` sont écartés. Le ton (`tone`) ne sert qu'à l'agent du
    chat : l'email ne change pas de ton (il faudrait un appel à Gemini par abonné,
-   voir [doc/optimisation.md](doc/optimisation.md)).
+   voir [docs/optimisation-IA.md](docs/optimisation-IA.md)).
 4. **Vérifie l'email avant l'envoi** (`Vérifier l'email`) : destinataire valide,
    au moins un article, lien de désinscription présent, aucune balise dangereuse
    (`<script>`, `onerror=`…) et uniquement des liens `http(s)`. Si un point échoue,
@@ -430,28 +430,28 @@ WORKFLOWS=workflows node scripts/test_scenarios.js
 Le script lance le vrai code des nœuds des workflows, avec des réponses de Gemini écrites à la
 main. Rien n'est écrit en base.
 
-31 tests : un test par protection pour la collecte et l'envoi, et pour le reste un ou deux par
-domaine (le cas normal, et le cas le plus important à bloquer). Ils doivent tous passer
-(`31 réussis, 0 ratés`).
+29 tests, qui doivent tous passer (`29 réussis, 0 ratés`). Le script les range comme les
+workflows : un groupe par partie (A, B, Commun), puis une section par workflow, qui affiche les
+nœuds qu'elle lance.
 
-Les domaines sont les sections affichées par le script (`--- Collecte : …`) :
-
-| Section du script | Tests | Ce qui est testé | Détails |
+| Groupe | Section du script | Tests | Ce qui est testé |
 |---|---|---|---|
-| Collecte : évaluation des résumés | 9 | un bon résumé est gardé ; rejetés : vide, trop long, en anglais, avec du HTML, un lien ou une consigne, refusé par l'IA relectrice ; IA relectrice en panne : seul le contrôle automatique compte | [tests-evaluation.md](doc/tests-evaluation.md) |
-| Collecte : reprise des articles sans résumé | 1 | après l'insertion, les articles passent par `Articles à résumer` | [tests-evaluation.md](doc/tests-evaluation.md) |
-| Envoi : vérification de l'email | 5 | un email normal part ; du HTML dans un titre est échappé ; bloqués : lien `javascript:`, `Bcc` caché, lien de désinscription absent | [tests-evaluation.md](doc/tests-evaluation.md) |
-| Envoi : réglages choisis dans le chat | 6 | les formats `titres`, `resume` et `detaille` ; un format ou un fuseau inconnu ne casse rien ; les sources exclues sont retirées avant le `LIMIT` | [tests-evaluation.md](doc/tests-evaluation.md) |
-| Chat : messages envoyés à l'IA | 2 | rien ne part vers l'IA pendant l'inscription ou la connexion ; 6 messages en une minute, le suivant est refusé | [protection-deni-de-service.md](doc/protection-deni-de-service.md) |
-| Chat : comprendre les phrases | 2 | un non connecté qui veut s'inscrire démarre l'inscription ; aucune intention, connecté ou non, ne supprime un compte | [protection-deni-de-service.md](doc/protection-deni-de-service.md) |
-| Inscription : code reçu par email | 2 | bon code : compte créé ; 5 essais au maximum | [code-inscription.md](doc/code-inscription.md) |
-| Agent : un prompt par étape | 2 | sans sujets, étape 1 ; les 5 étapes gardent les règles de sécurité et la règle des outils | [prompts.md](doc/prompts.md) |
-| Agent : outils | 1 | `reinclure_source` est branché sur l'agent et agit sur le compte de la session | [prompts.md](doc/prompts.md) |
-| Modèle Gemini | 1 | les 4 nœuds Gemini ont le même modèle, écrit en toutes lettres | [optimisation.md](doc/optimisation.md#les-deux-modèles-essayés) |
+| A · Chatbot | [A] Chat - Entrée : messages envoyés à l'IA | 2 | rien ne part vers l'IA pendant l'inscription ou la connexion ; une rafale de messages est refusée |
+| A · Chatbot | [A] Chat - Entrée : comprendre les phrases | 2 | une phrase d'inscription est comprise ; aucune phrase ne supprime un compte |
+| A · Chatbot | [A] Chat - Entrée : code d'inscription | 2 | le bon code crée le compte ; 5 essais au maximum |
+| A · Chatbot | [A] Chat - Agent : prompt par étape | 1 | sans centre d'intérêt, l'agent est à l'étape 1 |
+| B · Newsletter | [B] News - Collecte : contrôle des résumés | 9 | un bon résumé est gardé, les mauvais sont rejetés, même si l'IA relectrice est en panne |
+| B · Newsletter | [B] News - Collecte : reprise des articles | 1 | les articles d'un lot raté sont repris |
+| B · Newsletter | [B] News - Envoi : sécurité de l'email | 5 | le HTML est échappé ; un lien `javascript:`, un `Bcc` caché ou un lien de désinscription absent bloquent l'email |
+| B · Newsletter | [B] News - Envoi : réglages de l'abonné | 6 | les 3 formats, un format ou un fuseau inconnu, les sources exclues |
+| Commun | Modèle Gemini | 1 | les 4 nœuds Gemini ont le même modèle, écrit en toutes lettres |
+
+Le détail de chaque test, et ce qui n'est pas testé, est dans
+[docs/tests-scenarios.md](docs/tests-scenarios.md).
 
 Les tests ne remplacent pas un essai avec le vrai Gemini : ils ne vérifient ni la qualité des
 résumés, ni ce que l'agent décide de faire. Les conversations à rejouer à la main sont dans
-[doc/prompts.md](doc/prompts.md#tester-une-nouvelle-version).
+[docs/prompts-IA.md](docs/prompts-IA.md#tester-une-nouvelle-version).
 
 ## Sources de news
 
@@ -495,11 +495,11 @@ certains sites bloquent les requêtes qui n'ont pas l'air de venir d'un navigate
 
 ## Documentation
 
-- [doc/code-inscription.md](doc/code-inscription.md) : le code par email à l'inscription
-- [doc/protection-deni-de-service.md](doc/protection-deni-de-service.md) : les limites de messages vers l'IA
-- [doc/prompts.md](doc/prompts.md) : les prompts de l'agent et de l'intention, et leurs versions
-- [doc/audit-securite/audit-secu.md](doc/audit-securite/audit-secu.md) : l'audit de sécurité du chatbot et des workflows de B (13/11, avec une mise à jour du 14/11)
-- [doc/audit-securite.md](doc/audit-securite.md) : la première version de l'audit (29/10)
-- [doc/tests-evaluation.md](doc/tests-evaluation.md) : les tests de l'évaluation avant l'envoi
-- [doc/optimisation.md](doc/optimisation.md) : ce que coûte chaque workflow en temps et en tokens, et le quota Gemini
-- [doc/normes-RGPD.md](doc/normes-RGPD.md) : la politique de confidentialité et le registre des traitements
+- [docs/tests-scenarios.md](docs/tests-scenarios.md) : tous les tests, rangés par workflow, et ce qui n'est pas testé
+- [docs/code-inscription.md](docs/code-inscription.md) : le code par email à l'inscription
+- [docs/protection-deni-of-service.md](docs/protection-deni-of-service.md) : les limites de messages vers l'IA
+- [docs/prompts-IA.md](docs/prompts-IA.md) : les prompts de l'agent et de l'intention, et leurs versions
+- [docs/optimisation-IA.md](docs/optimisation-IA.md) : ce que coûte chaque workflow en temps et en tokens, et le quota Gemini
+- [docs/audit-securite/audit-secu.md](docs/audit-securite/audit-secu.md) : l'audit de sécurité du chatbot et des workflows de B (13/11, avec une mise à jour du 14/11)
+- [docs/audit-securite.md](docs/audit-securite.md) : la première version de l'audit (29/10)
+- [docs/normes-RGPD.md](docs/normes-RGPD.md) : la politique de confidentialité et le registre des traitements

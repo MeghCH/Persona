@@ -31,7 +31,7 @@ Attention, le quota du jour dépend du modèle. Les valeurs ont été choisies p
 sous le quota, mais avec `gemini-3-flash-preview`, le premier modèle, il n'était que de 20 requêtes
 par jour : la limite de 600 ne protégeait rien. Le modèle actuel, `gemini-3.5-flash-lite`, a un
 quota plus haut, dont on ne connaît pas encore la valeur exacte. Il faudra régler la limite de 600
-dessus (voir [optimisation.md](optimisation.md)). Cette limite ne contrôle pas les appels de B (collecte, évaluation), qui
+dessus (voir [optimisation-IA.md](optimisation-IA.md)). Cette limite ne contrôle pas les appels de B (collecte, évaluation), qui
 utilisent le même quota.
 
 Compter et enregistrer le message se font en une seule fois, dans la fonction SQL
@@ -53,7 +53,7 @@ raison et par minute, pour qu'un attaquant ne puisse pas remplir le journal.
 - l'agent réessaie 2 fois au lieu de 3
 - chaque exécution est coupée au bout de 60 secondes (`executionTimeout`)
 - ce qui existait déjà : 1000 caractères par message, 2048 tokens de réponse au maximum pour
-  l'agent et 1024 pour l'intention (Gemini 3 compte sa réflexion dedans, voir `doc/prompts.md`),
+  l'agent et 1024 pour l'intention (Gemini 3 compte sa réflexion dedans, voir `docs/prompts-IA.md`),
   6 étapes d'outils au maximum, 8 messages gardés en mémoire
 
 ## Comprendre les phrases
@@ -89,13 +89,16 @@ Ce qui reste protégé :
 docker compose exec -T n8n node - < scripts/test_scenarios.js
 ```
 
-Ces tests lancent le vrai code des nœuds. Pour cette partie, il en reste 4 :
+Ces tests lancent le vrai code des nœuds. Pour cette partie, il y en a 4, dans deux sections du
+script (détail dans [tests-scenarios.md](tests-scenarios.md)) :
 
-- pendant l'inscription ou la connexion guidée, rien ne part vers l'IA (le mot de passe n'y va
-  jamais)
-- 6 messages en une minute : le suivant est refusé
-- un non connecté qui veut s'inscrire démarre l'inscription
-- le cas grave : aucune intention ne mène à `delete_confirm`
+- `[A] Chat - Entrée : messages envoyés à l'IA`
+  - pendant l'inscription ou la connexion guidée, rien ne part vers l'IA (le mot de passe n'y va
+    jamais)
+  - 6 messages en une minute : le suivant est refusé
+- `[A] Chat - Entrée : comprendre les phrases`
+  - un non connecté qui veut s'inscrire démarre l'inscription
+  - le cas grave : aucune intention ne mène à `delete_confirm`
 
 Les autres limites (par jour, par compte, pour les non connectés), le comptage en une seule requête
 et la lecture de la réponse de l'IA ne sont plus testés automatiquement. Ils ont été vérifiés

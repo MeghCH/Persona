@@ -74,7 +74,7 @@ conversation, un appel prend 1 700 à 2 600 tokens d'entrée, quel que soit le m
 - **L'agent** : à la main, l'heure, les sujets, le style, l'exclusion d'une source et deux
   changements dans le même message marchent. Une erreur : pour « réinclure Le Monde », que l'agent
   ne savait pas faire, il a exclu France Info à la place, sans le dire. Corrigé par un outil
-  `reinclure_source` et une règle dans le prompt (voir [prompts.md](prompts.md)), puis revérifié à
+  `reinclure_source` et une règle dans le prompt (voir [prompts-IA.md](prompts-IA.md)), puis revérifié à
   la main. C'est le genre d'erreur à surveiller avec un modèle Lite.
 
 Si l'agent se trompe trop, l'étape suivante est `gemini-3.8-flash` avec une clé payante : avec la clé
@@ -155,7 +155,7 @@ modèle, une requête coûte environ **430 tokens fixes** (les consignes et le f
   (appels d'outils) par message
 - l'agent fait 2 essais au maximum si Gemini échoue
 - les limites de messages par minute et par jour (voir
-  [protection-deni-de-service.md](protection-deni-de-service.md))
+  [protection-deni-of-service.md](protection-deni-of-service.md))
 - 50 articles au maximum par collecte (voir [Reprise des articles](#reprise-des-articles))
 
 ## Ce qu'on a trouvé avec le premier modèle
@@ -209,7 +209,7 @@ On avait deux pistes :
   exécutions contenaient des refus « too many requests ». Le nœud réessaie alors tout seul, en
   attendant de plus en plus longtemps.
 - **la réflexion du modèle** : `gemini-3-flash-preview` « réfléchit » avant de répondre. On l'avait
-  vu sur l'agent : 577 tokens de réflexion pour 23 de réponse (voir [prompts.md](prompts.md)).
+  vu sur l'agent : 577 tokens de réflexion pour 23 de réponse (voir [prompts-IA.md](prompts-IA.md)).
   Vérifier chaque fait demande sans doute plus de réflexion que résumer. Ces tokens de réflexion
   n'apparaissent pas dans le compteur de n8n.
 
