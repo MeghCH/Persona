@@ -10,19 +10,16 @@ jobs:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
-
       - name: Vérifier que les workflows sont nettoyés
         run: |
           sortie=$(python3 scripts/sanitize.py workflows/)
           echo "$sortie"
 
-          # secret probable : sanitize.py le signale sans le retirer
           if echo "$sortie" | grep -q '!!'; then
             echo "::error::Secret probable dans un workflow, à retirer à la main."
             exit 1
           fi
 
-          # sanitize.py a modifié un fichier : il n'avait pas été lancé avant le commit
           if ! git diff --quiet -- workflows/; then
             git diff --stat -- workflows/
             echo "::error::Workflows pas nettoyés. Lancer python3 scripts/sanitize.py workflows/ puis commiter."
@@ -33,11 +30,9 @@ jobs:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-
       - name: Lancer les tests de scénarios
         run: node scripts/test_scenarios.js
         env:
