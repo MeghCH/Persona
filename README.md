@@ -190,6 +190,10 @@ du nœud Postgres), jamais de concaténation : c'est ce qui protège de l'inject
 
 L'ordre de publication est à l'étape 4 de [Lancer le projet](#lancer-le-projet).
 
+Les 4 nœuds Gemini utilisent le même modèle, `gemini-3.5-flash-lite`, écrit dans chaque nœud. Pour
+en changer, il faut changer les 4 : un test le vérifie. Le choix est expliqué dans
+[doc/optimisation.md](doc/optimisation.md#changement-de-modèle).
+
 ### `[A] Chat - Entrée`
 
 Le chat se fait depuis la page http://localhost:8090 (fichier `web/index.html`, servi par

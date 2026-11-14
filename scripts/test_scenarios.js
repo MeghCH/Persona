@@ -648,5 +648,19 @@ verifier("intention : l'abonné reçoit une réponse rédigée pour « aide », 
 verifier('intention : une valeur inconnue donne le prompt visiteur', promptIntention('peut-être').profil, 'visiteur');
 
 
+
+
+console.log('\n--- Modèle Gemini');
+
+// Scénario : un nœud Gemini n'a pas de modèle écrit. n8n prend alors son modèle par défaut, qui change
+// avec les versions de n8n (c'est comme ça qu'on s'est retrouvés sur gemini-3-flash-preview), et le
+// quota change avec lui (voir doc/optimisation.md).
+const noeudsGemini = [collecte, agent, intention].flatMap(w =>
+  w.nodes.filter(n => n.type === '@n8n/n8n-nodes-langchain.lmChatGoogleGemini'));
+verifier('les 4 nœuds Gemini ont un modèle écrit, le même partout',
+  [noeudsGemini.length, [...new Set(noeudsGemini.map(n => n.parameters.modelName))].join(',')].join(' | '),
+  '4 | models/gemini-3.5-flash-lite');
+
+
 console.log('\n' + reussis + ' réussis, ' + rates + ' ratés');
 process.exit(rates > 0 ? 1 : 0);
