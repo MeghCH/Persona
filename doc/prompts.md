@@ -10,6 +10,10 @@ Au début, chacun avait un seul prompt, le même pour tout le monde. Maintenant,
 selon l'étape où en est l'utilisateur. Dans les deux workflows, un nœud Code `Choisir le prompt`
 assemble le prompt juste avant l'appel à Gemini.
 
+Le modèle est `gemini-3.5-flash-lite` depuis le 14/11. Avant, c'était `gemini-3-flash-preview` :
+les versions plus bas datées d'avant le 14/11 ont été écrites et testées avec lui (voir
+[optimisation.md](optimisation.md#les-deux-modèles-essayés)).
+
 ## L'agent : un prompt par étape
 
 Le nœud `Lire l'étape` lit en SQL les préférences de l'utilisateur, la date de sa dernière
@@ -140,3 +144,8 @@ Les 30 tests du choix de prompt vérifient :
   fuseau, fuseau inconnu), avec une date fixée dans le test pour qu'il ne dépende pas du jour ;
 - le message de l'utilisateur jamais mélangé au prompt ;
 - le bon prompt d'intention (visiteur, abonné, `aide` pour l'abonné, valeur inconnue).
+
+5 autres tests vérifient les outils des sources : `reinclure_source` est branché sur l'agent, agit
+sur le compte de la session et note la modification dans le journal, les deux outils connaissent
+les mêmes sources, et chaque étape garde la règle « un outil seulement pour ce que l'utilisateur a
+demandé ».

@@ -2,6 +2,10 @@
 
 Partie A (chatbot et sécurité), 29/10/2026.
 
+> Première version de l'audit, gardée telle quelle. La version à jour est
+> [audit-securite/audit-secu.md](audit-securite/audit-secu.md) (13/11, avec une mise à jour du
+> 14/11) : plusieurs points d'ici ont été corrigés depuis.
+
 On a vérifié la sécurité de nos deux workflows (`[A] Chat - Entrée` et `[A] Chat - Agent`),
 puis on a attaqué les workflows de B, comme prévu en phase 2.
 

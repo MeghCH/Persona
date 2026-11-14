@@ -18,6 +18,37 @@ comme prévu en phase 2.
 - Il reste des risques, dont 3 à traiter avant une mise en ligne : Postgres et n8n ouverts sur tout
   le réseau, pas de HTTPS, et pas de limite d'envois de codes par adresse email.
 
+## Mise à jour du 14/11
+
+Ce qui a changé depuis le 13/11 et touche cet audit. Le reste du document est celui du 13/11.
+
+- **Le modèle.** Les 4 nœuds Gemini utilisent maintenant `gemini-3.5-flash-lite`, écrit dans chaque
+  nœud. Avant, n8n prenait `gemini-3-flash-preview` par défaut. Le quota de 20 requêtes par jour
+  cité plus bas était celui de l'ancien modèle : le nouveau a tenu au moins 31 requêtes le 14/11
+  sans aucun refus. La limite de 600 messages par jour reste à régler sur son vrai quota (voir
+  [optimisation.md](../optimisation.md)).
+- **Une erreur de l'agent, trouvée à la main.** À « réinclure Le Monde », qu'il ne savait pas
+  faire, l'agent a appelé `exclure_source` avec France Info, puis a répondu sans le dire. Ce n'est
+  pas une faille (il ne pouvait toucher qu'au compte connecté), mais c'est le risque « Excessive
+  Agency » de l'OWASP : l'IA modifie quelque chose qu'on ne lui a pas demandé. Corrigé de deux
+  façons :
+  - un outil `reinclure_source`, avec les mêmes protections que les autres : l'utilisateur vient
+    de la session, la liste des sources est fermée, et chaque modification est notée dans
+    `audit_log` (`prefs_source_included`) ;
+  - une règle dans le prompt, à toutes les étapes : un outil ne sert qu'à ce que l'utilisateur a
+    demandé ; sinon, l'agent le dit et ne modifie rien.
+
+  Revérifié à la main, et 5 tests de plus (voir [prompts.md](../prompts.md)).
+- **Les préférences du chat dans l'email.** B applique maintenant le format et les sources exclues.
+  Les sources exclues sont filtrées en SQL, avec une liste passée en paramètre : pas d'injection
+  possible. Le ton et le feedback ne sont toujours pas utilisés par B.
+- **Les articles perdus.** Quand Gemini refusait un lot, ses articles n'étaient jamais repris. Ils
+  le sont maintenant, 50 au plus par collecte, et passent par les mêmes contrôles (contrôle
+  automatique, puis IA relectrice).
+- **Les tests.** 124 au lieu de 75, tous passent (lancés le 14/11).
+- **Le registre RGPD.** Gemini y est noté comme sous-traitant qui reçoit les messages du chat, et
+  la table `chat_ai_requests` y a été ajoutée (voir [normes-RGPD.md](../normes-RGPD.md)).
+
 ## Ce qu'on a audité
 
 - les workflows `[A] Chat - Entrée`, `[A] Chat - Agent` et `[A] Chat - Intention`

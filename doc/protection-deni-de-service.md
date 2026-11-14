@@ -24,9 +24,14 @@ l'heure, jamais le texte). Avant l'appel, le workflow `[A] Chat - Entrée` regar
 Les non connectés ont une petite part du total : même si quelqu'un change d'identifiant à chaque
 message, il ne peut pas épuiser le quota des utilisateurs connectés.
 
-Un message peut coûter jusqu'à 2 appels à Gemini (comprendre la phrase, puis l'agent). Les valeurs
-laissent donc une marge sous le quota du jour. Pour les changer, modifier le haut du code du nœud
-`Contrôler le débit`. Cette limite ne contrôle pas les appels de B (collecte, évaluation), qui
+Un message peut coûter jusqu'à 2 appels à Gemini (comprendre la phrase, puis l'agent). Pour
+changer les valeurs, modifier le haut du code du nœud `Contrôler le débit`.
+
+Attention, le quota du jour dépend du modèle. Les valeurs ont été choisies pour laisser une marge
+sous le quota, mais avec `gemini-3-flash-preview`, le premier modèle, il n'était que de 20 requêtes
+par jour : la limite de 600 ne protégeait rien. Le modèle actuel, `gemini-3.5-flash-lite`, a un
+quota plus haut, dont on ne connaît pas encore la valeur exacte. Il faudra régler la limite de 600
+dessus (voir [optimisation.md](optimisation.md)). Cette limite ne contrôle pas les appels de B (collecte, évaluation), qui
 utilisent le même quota.
 
 Compter et enregistrer le message se font en une seule fois, dans la fonction SQL
