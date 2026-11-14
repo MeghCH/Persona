@@ -31,7 +31,7 @@ jobs:
             exit 1
           fi
 
-  # les scénarios d'échec de l'évaluation avant l'envoi (scripts/test_scenarios.js)
+  # les tests des workflows (scripts/test_scenarios.js)
   tests:
     runs-on: self-hosted
     steps:

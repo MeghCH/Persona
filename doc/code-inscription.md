@@ -66,11 +66,13 @@ envoyer de vrais emails, sur Gmail. Les deux réglages sont à l'étape 2 du REA
 docker compose exec -T n8n node - < scripts/test_scenarios.js
 ```
 
-20 tests pour le code : l'inscription en une ligne est refusée, un seul nœud crée des comptes
-(`Vérifier le code`), le code est tiré avec `gen_random_bytes`, haché avant d'être gardé, 5 essais
-et 3 envois au maximum, le code ne part pas à l'IA et n'apparaît dans aucune réponse du chat, un
-email déjà inscrit ne reçoit pas de code, et chaque réponse du chat (bon code, mauvais code, trop
-d'essais).
+2 tests pour le code : avec le bon code, le compte est créé, et un code n'accepte que 5 essais.
+Un troisième, dans la partie chat, vérifie que rien ne part vers l'IA pendant l'inscription, code
+compris.
+
+Les autres protections (code tiré avec `gen_random_bytes`, haché, 3 envois au maximum, rien pour un
+email déjà inscrit…) ne sont plus testées automatiquement. Elles sont toujours dans le workflow, et
+ont été vérifiées en vrai (ci-dessous).
 
 Le parcours complet a aussi été joué dans le vrai n8n, avec la vraie base et Mailpit : inscription
 normale, mauvais code, 5 mauvais codes, renvoi de code (l'ancien ne marche plus, 4e demande
