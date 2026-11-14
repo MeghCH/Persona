@@ -3,7 +3,8 @@
 Nettoie les workflows n8n exportés avant commit / rendu.
 - donne aux credentials leur nom d'équipe (Postgres Persona, SMTP Persona, LLM Persona) : à
   l'import, n8n rattache chaque nœud au credential qui porte ce nom.
-- supprime les données épinglées (pinData), staticData et shared, qui peuvent contenir des données réelles.
+- supprime les données épinglées (pinData), staticData et shared, qui peuvent contenir des données réelles,
+  et meta.instanceId (un hash tiré de la clé de chiffrement de n8n).
 - vide les headers sensibles (Authorization, api key...).
 - signale les secrets probables ailleurs (webhooks Discord, clés API...) sans les modifier.
 
@@ -51,6 +52,9 @@ def sanitize(path: Path) -> list[str]:
         for key in ("staticData", "shared"):
             if wf.pop(key, None):
                 warnings.append(f"  - {key} supprimé")
+        # instanceId : un hash tiré de N8N_ENCRYPTION_KEY. Pas un secret, mais inutile dans Git.
+        if (wf.get("meta") or {}).pop("instanceId", None):
+            warnings.append("  - meta.instanceId supprimé")
         for node in wf.get("nodes", []):
             for cred_type, cred in node.get("credentials", {}).items():
                 cred["name"] = CREDENTIAL_NAMES.get(cred_type, f"{cred_type} (à configurer)")

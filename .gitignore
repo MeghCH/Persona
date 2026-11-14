@@ -1,4 +1,31 @@
+# Secrets : le .env et ses copies (.env.local, .env.bak…). Seul l'exemple est commité.
 .env
-.DS_Store
+.env.*
+!.env.example
 
+# Exports n8n à ne jamais commiter : workflows/ est monté dans le conteneur n8n, un
+# « n8n export:credentials » y écrirait les credentials (déchiffrés avec --decrypted).
+*credential*.json
+
+# Sauvegardes de la base (pg_dump), qui contiennent les données des utilisateurs
+*.dump
+*.backup
+*.sql.gz
+
+# Outils
 __pycache__/
+*.pyc
+.venv/
+venv/
+node_modules/
+*.log
+
+# Réglages locaux de Claude Code (permissions propres à chacun)
+.claude/settings.local.json
+
+# Éditeurs et systèmes
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
