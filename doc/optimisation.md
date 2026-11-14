@@ -16,7 +16,8 @@ Depuis le 14/11, les 4 nœuds Gemini utilisent `gemini-3.5-flash-lite` (voir
   gratuite est limitée à **20 requêtes par jour** pour ce modèle, et la collecte seule en demande
   30 à 48.
 - Conséquence : **22 % des articles collectés n'ont jamais été résumés**, et 25 collectes sur 68
-  se sont arrêtées sur un refus de Gemini.
+  se sont arrêtées sur un refus de Gemini. Depuis le 14/11, ces articles sont repris à la
+  collecte suivante.
 - L'évaluation des résumés prend 92 % du temps de la collecte.
 
 ## Ce que coûte chaque partie
@@ -49,8 +50,9 @@ ton, il faudrait un appel par abonné et par envoi.
 
 Les flux RSS renvoient à chaque passage des articles qu'on a déjà. Trois étapes les écartent avant
 Gemini : `Articles récents` garde ceux des dernières 48 h, `Enregistrer les articles` n'insère que
-les URL inconnues (`ON CONFLICT DO NOTHING`), et `Nouveaux articles` ne laisse passer que ceux qui
-viennent d'être insérés.
+les URL inconnues (`ON CONFLICT DO NOTHING`), et `Articles à résumer` ne prend que ceux qui n'ont
+pas encore de résumé. Depuis le 14/11, ça comprend aussi ceux d'un lot qui a échoué (voir
+[Reprise des articles](#reprise-des-articles)). Les mesures ci-dessous datent d'avant.
 
 | Articles lus dans les flux | Récents (48 h) | Nouveaux, envoyés à l'IA |
 |---|---|---|
@@ -119,8 +121,9 @@ Ce que ça a donné :
 - 25 collectes sur 68 se sont arrêtées sur un refus de Gemini, toutes sur `Classer et résumer` :
   19 « too many requests », 4 « service unavailable », 2 autres erreurs de l'API.
 - **654 articles sur 2 930 (22 %) n'ont jamais été résumés.** Quand Gemini refuse, la collecte
-  s'arrête. Les articles restants sont déjà en base, et `Nouveaux articles` ne laisse passer que
-  ceux qui viennent d'être insérés : ils ne sont jamais repris.
+  s'arrête. Les articles restants sont déjà en base, et le filtre de l'époque ne laissait passer
+  que ceux qui venaient d'être insérés : ils n'étaient jamais repris. Corrigé le 14/11 (voir
+  [Reprise des articles](#reprise-des-articles)).
 - La limite globale du chat (600 messages par jour, tout le monde) a été réglée « sous le quota
   Gemini ». Le vrai quota est 30 fois plus bas : avec cette clé, elle ne protège rien.
 
@@ -184,22 +187,55 @@ autre modèle aurait fait mieux. C'est corrigé par un outil et une règle dans 
 Si l'agent se trompe trop, l'étape suivante est `gemini-3.8-flash` avec une clé payante : avec la clé
 gratuite, son quota ne suffit pas.
 
+## Reprise des articles
+
+Depuis le 14/11, un article dont le lot a échoué est repris à la collecte suivante. Après
+`Enregistrer les articles`, le nœud `Articles à résumer` cherche en base les articles à résumer,
+au lieu de ne prendre que ceux qu'on vient d'insérer :
+
+| Choix | Pourquoi |
+|---|---|
+| ni résumé ni thème (`summary IS NULL AND tags = '{}'`) | un article passé par l'évaluation a toujours des thèmes, même s'il a été rejeté : on ne repaie pas un résumé déjà refusé |
+| collectés depuis 24 h | l'envoi ne prend que ces articles-là : résumer les plus vieux ne servirait à rien |
+| les plus récents d'abord | si la liste est coupée, on garde les plus utiles ; et un article qui ferait planter Gemini à chaque fois ne bloque que les lots qui viennent après lui |
+| 50 au maximum par collecte (5 lots, 10 requêtes) | après une journée sans Gemini, une seule collecte n'envoie pas 40 requêtes d'un coup : le reste attend la suivante |
+| `alwaysOutputData` sur `Enregistrer les articles` | sans nouvel article, ce nœud ne sort rien et la suite ne tournait pas : les articles en attente seraient restés en attente |
+
+Ça ne coûte aucune requête de plus : ce sont des articles qu'on aurait dû résumer de toute façon.
+
+Avant la correction, le 14/11 à 16 h 37 (heure de Paris), 42 articles des dernières 24 h n'avaient
+jamais été résumés. Pour vérifier après quelques collectes :
+
+```sql
+SELECT count(*) FILTER (WHERE summary IS NULL AND tags = '{}') AS jamais_resumes,
+       count(*) FILTER (WHERE summary IS NULL AND tags <> '{}') AS rejetes,
+       count(*) FILTER (WHERE summary IS NOT NULL) AS resumes
+FROM articles
+WHERE fetched_at > now() - INTERVAL '24 hours';
+```
+
+`jamais_resumes` doit retomber à 0 après une collecte qui se passe bien.
+
+Limites :
+
+- si deux collectes tournent en même temps (une collecte qui dure plus d'une heure), elles peuvent
+  prendre les mêmes articles. L'article est alors résumé deux fois : des tokens perdus, mais pas de
+  donnée fausse ;
+- un article qui ferait planter Gemini à chaque fois serait repris pendant 24 h, puis abandonné.
+
 ## Pistes
 
-Rien de cette partie n'est fait, sauf la piste 3. Les gains sont calculés pour 180 articles par jour.
+Rien de cette partie n'est fait, sauf les pistes 1 et 3. Les gains sont calculés pour 180 articles
+par jour.
 
 | Piste | Gain | Ce que ça coûte |
 |---|---|---|
-| 1. Reprendre les articles sans résumé | plus aucun article perdu | aucune requête en plus : ce sont les mêmes articles |
+| 1. ~~Reprendre les articles sans résumé~~ (fait le 14/11) | plus aucun article perdu | voir [Reprise des articles](#reprise-des-articles) |
 | 2. Des lots plus gros, une collecte moins souvent | de 48 à 8-12 requêtes par jour | voir le tableau plus bas |
 | 3. ~~Choisir le modèle dans les nœuds~~ (fait le 14/11) | une mise à jour de n8n ne change plus le modèle ni le quota en silence | voir [Changement de modèle](#changement-de-modèle) |
 | 4. Ne pas appeler l'IA relectrice quand le contrôle automatique a tout rejeté | 1 requête de moins par lot entièrement rejeté | rare : 1 seul rejet automatique mesuré |
 | 5. Régler la limite globale du chat sur le vrai quota | la limite protège vraiment le quota | moins de messages possibles par jour |
 | 6. Passer à une clé payante | plus de quota par jour | le prix dépend alors des tokens : les chiffres plus haut permettent de l'estimer |
-
-**1.** Après `Enregistrer les articles`, on prendrait aussi les articles des dernières 24 h qui
-n'ont ni résumé ni thème (`summary IS NULL AND tags = '{}'`). Un article rejeté par l'évaluation a des thèmes : il ne
-serait pas renvoyé.
 
 **2.** Pour 180 articles par jour :
 
