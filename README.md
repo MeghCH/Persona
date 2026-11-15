@@ -25,6 +25,16 @@ fonctionnement interne et le travail en équipe sont dans [docs/](#pour-aller-pl
 - **Une clé API Gemini**, gratuite sur https://aistudio.google.com/apikey. Sans clé, l'inscription
   et la connexion marchent, mais pas l'agent ni la collecte des news. Le quota gratuit est compté
   par modèle : Persona utilise `gemini-3.5-flash-lite` (voir [docs/optimisation-IA.md](docs/optimisation-IA.md)).
+  Pour la créer :
+  1. Ouvrir https://aistudio.google.com/apikey et se connecter avec un compte Google (un compte
+     Gmail suffit). La première fois, accepter les conditions d'utilisation.
+  2. Cliquer sur _Create API key_. Si Google demande un projet, en créer un nouveau (ou en choisir
+     un existant).
+  3. Copier la clé (elle commence par `AIza`). Elle se colle dans n8n à l'étape 2 (credential
+     `LLM Persona`), pas dans `.env`. La garder pour soi : avec elle, n'importe qui peut utiliser
+     le quota. On la retrouve à tout moment sur la même page.
+  4. Ne pas activer la facturation sur ce projet : sans facturation, on reste sur le quota gratuit
+     et rien n'est jamais payé.
 
 ### 1. Démarrer
 
@@ -59,14 +69,39 @@ Puis _Create_ → _Credential_, trois fois. **Les noms doivent être exactement 
 | `SMTP Persona`     | SMTP                    | Host `mailpit`, Port `1025`, SSL/TLS désactivé, User et Password vides                                                                         |
 | `LLM Persona`      | Google Gemini(PaLM) Api | API Key : la clé Gemini (laisser le Host par défaut)                                                                                           |
 
+Pour chacun :
+
+1. Dans la recherche, taper le type (`Postgres`, `SMTP` ou `Gemini`), le choisir, puis _Continue_.
+2. Remplir les réglages du tableau. Les champs qui n'y sont pas restent comme ils sont.
+3. Renommer le credential : n8n lui donne un nom par défaut (par exemple `Postgres account`), en
+   haut à gauche de la fenêtre. Cliquer dessus et taper le nom du tableau.
+4. Cliquer sur _Save_. n8n teste la connexion : s'il affiche une erreur, revérifier les réglages.
+   Pour `Postgres Persona`, c'est presque toujours le mot de passe, qui doit être exactement la
+   valeur de `PERSONA_DB_PASSWORD` dans `.env`.
+
 n8n utilise `persona_app` et pas le compte admin : même si un attaquant détourne une requête,
 il ne peut pas supprimer de tables.
 
 Avec ces réglages, aucun email ne part vraiment : ils arrivent tous dans Mailpit, une fausse boîte
-mail, sur http://localhost:8025. Pour envoyer de vrais emails avec Gmail, régler `SMTP Persona` sur :
-Host `smtp.gmail.com`, Port `465`, SSL/TLS activé, User l'adresse Gmail, Password un
-[mot de passe d'application](https://myaccount.google.com/apppasswords). Changer aussi l'adresse
-d'expéditeur dans les nœuds `Envoyer le code` et `Envoyer la newsletter`.
+mail, sur http://localhost:8025. Pour envoyer de vrais emails avec Gmail, il faut un compte Gmail
+personnel (les comptes d'école ou d'entreprise bloquent souvent les mots de passe d'application) :
+
+1. Activer la validation en deux étapes sur le compte Google (https://myaccount.google.com/security) :
+   sans elle, Google ne propose pas de mot de passe d'application.
+2. Créer un [mot de passe d'application](https://myaccount.google.com/apppasswords) : lui donner un
+   nom (par exemple `Persona`), puis copier les 16 lettres affichées, sans les espaces.
+3. Régler `SMTP Persona` sur : Host `smtp.gmail.com`, Port `465`, SSL/TLS activé, User l'adresse
+   Gmail, Password le mot de passe d'application. Pas le mot de passe habituel du compte : Gmail le
+   refuse.
+4. Après « 3. Brancher les workflows », et pas avant (l'import remettrait l'ancienne adresse), changer l'adresse
+   d'expéditeur : dans `[A] Chat - Entrée`, nœud `Envoyer le code`, et dans `[B] News - Envoi`,
+   nœud `Envoyer la newsletter`, remplacer `personaepitech26@gmail.com` par l'adresse Gmail dans
+   le champ _From Email_. Le faire avant de publier les workflows (étape 4), sinon cliquer de
+   nouveau sur _Publish_ après. À refaire après chaque `bash scripts/workflows.sh import`.
+
+Avec Gmail, les emails n'arrivent plus dans Mailpit, mais dans la vraie boîte de l'adresse donnée
+au chatbot (regarder aussi les spams) : il faut donc s'inscrire avec une vraie adresse. Partout où
+ce README parle de Mailpit, c'est cette boîte qu'il faut ouvrir.
 
 ### 3. Brancher les workflows sur les credentials
 
@@ -94,7 +129,10 @@ aucune newsletter ne peut partir.
 C'est prêt :
 
 - **chatbot** : http://localhost:8090, cliquer sur la bulle et taper `inscription`
-- **emails** : http://localhost:8025, où arrive le code d'inscription
+- **emails** : http://localhost:8025, où arrive le code d'inscription. Avec Mailpit, pas besoin
+  d'une vraie adresse : il reçoit tous les emails, quelle que soit l'adresse. On peut donc
+  s'inscrire avec une adresse inventée (par exemple `test@exemple.fr`), puis cliquer sur l'email
+  dans la liste de Mailpit pour lire le code.
 
 ### 5. Utiliser le chatbot
 
@@ -236,6 +274,15 @@ résumés, ni ce que l'agent décide de faire. Les conversations à rejouer à l
 - [docs/protection-deni-of-service.md](docs/protection-deni-of-service.md) : les limites de messages vers l'IA
 - [docs/prompts-IA.md](docs/prompts-IA.md) : les prompts de l'agent et de l'intention, et leurs versions
 - [docs/optimisation-IA.md](docs/optimisation-IA.md) : ce que coûte chaque workflow en temps et en tokens, et le quota Gemini
-- [docs/audit-securite/audit-secu.md](docs/audit-securite/audit-secu.md) : l'audit de sécurité du chatbot et des workflows de B (13/11, avec une mise à jour du 14/11)
-- [docs/audit-securite.md](docs/audit-securite.md) : la première version de l'audit (29/10)
+- [docs/audit-securite/](docs/audit-securite/README.md) : l'audit de sécurité du chatbot et des workflows de B (15/11)
+  - [README.md](docs/audit-securite/README.md) : le sommaire, le résumé et la liste des failles et des attaques
+  - [failles/](docs/audit-securite/failles/) : une fiche par faille (F-01 à F-05) et par attaque testée (T-01 à T-25)
+  - [scope.md](docs/audit-securite/scope.md) : ce qui est dans le périmètre, ce qui n'y est pas, l'échelle de gravité
+  - [methode.md](docs/audit-securite/methode.md) : comment on a testé, et les outils pour tout rejouer
+  - [protections-chatbot.md](docs/audit-securite/protections-chatbot.md) : le trajet d'un message et les protections
+  - [protections-IA.md](docs/audit-securite/protections-IA.md) : ce que l'IA a le droit de faire, et les prompts par étape
+  - [mitre.md](docs/audit-securite/mitre.md) : ce que sont les codes MITRE, et l'index des codes utilisés
+  - [risques-restants.md](docs/audit-securite/risques-restants.md) : les risques qui restent, et la conclusion
+  - [rgpd-et-journal.md](docs/audit-securite/rgpd-et-journal.md) : les droits des utilisateurs et le journal de sécurité
+  - [test-globaux.md](docs/audit-securite/test-globaux.md) : la première version de l'audit (29/10)
 - [docs/normes-RGPD.md](docs/normes-RGPD.md) : la politique de confidentialité et le registre des traitements
